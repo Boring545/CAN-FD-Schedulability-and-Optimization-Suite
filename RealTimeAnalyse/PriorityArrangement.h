@@ -16,6 +16,7 @@ T lcm(T a, T b);
 bool critical_check(const std::vector<message>& mset, int& first_instant);
 //检测消息集里的消息是否在instant时完成其任务,未完成
 bool canMeetDeadlines(const std::vector<message>& messageSet, const int& instant);
+int offset_trans(int target, int basis, int T);
 //确定每个任务的分析上界和下界
 bool find_interval(const std::vector<message>& messageSet, std::vector<int>& lower_bound, std::vector<int>& upper_bound);
 class betaset {

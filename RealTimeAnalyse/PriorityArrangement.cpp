@@ -58,6 +58,12 @@ bool critical_check(const std::vector<message>& mset, int& first_instant) {
     first_instant = t;
     return true;
 }
+int offset_trans(int target, int basis,int T) {
+    if (target < basis) {
+        target = ceil((basis - target) / static_cast<double>(T))*T + target;
+    }
+    return target-basis;
+}
 bool find_interval(const std::vector<message>& messageSet, std::vector<int>& lower_bound, std::vector<int>& upper_bound) {
     if (messageSet.empty()) return false;
     std::vector<int> omax(messageSet.size()),temp_p(messageSet.size());
@@ -95,33 +101,35 @@ bool create_beta(const std::vector<message>& messageSet,const message& m, int lo
         //        betaset temp_b(messageSet[i].exec_time, (m + j) * messageSet[i].period + messageSet[i].offset);
         //        beta.push_back(temp_b);
         //    }
-        //}
-        if (messageSet[i].offset < upper) {
-            for (size_t j = 0; j * messageSet[i].period + messageSet[i].offset < upper; j++) {
-                betaset temp_b(messageSet[i].exec_time, j * messageSet[i].period + messageSet[i].offset);
+        
+        int offset = offset_trans(messageSet[i].offset, m.offset, messageSet[i].period);
+        if (offset < upper) {
+            for (size_t j = 0; j * messageSet[i].period + offset < upper; j++) {
+                betaset temp_b(messageSet[i].exec_time, j * messageSet[i].period + offset);
                 beta.push_back(temp_b);
             }
         }
     }
-
+   /* std::sort(beta.begin(), beta.end(), [](const betaset& a, const betaset& b) {return a.tr < b.tr; });*/
     return true;
 }
 bool  create_eta(const std::vector<message>& messageSet, const message& m, int t, int R, std::vector<betaset>& eta) {
     int c = 0, tr = 0;
     int upper = 0, lower = 0;
-    lower = R + t;
+    lower = R + t; 
     upper = lower + m.deadline;
     for (size_t i = 0; i < messageSet.size(); i++) {
         if (&(messageSet[i]) == &m) continue;
         //tr=O+m*T,寻找【lower，upper】内所有可能的tr取值，o就是messageSet[i].offset，T是messageSet[i].period，m为常数
         int m = ceil((lower - messageSet[i].offset) / (double)messageSet[i].period);
         if (m * messageSet[i].period + messageSet[i].offset < upper) {
-            for (size_t j = 1; (m + j) * messageSet[i].period + messageSet[i].offset <= upper; j++) {
+            for (size_t j = 0; (m + j) * messageSet[i].period + messageSet[i].offset < upper; j++) {
                 betaset temp_b(messageSet[i].exec_time, (m + j) * messageSet[i].period + messageSet[i].offset);
                 eta.push_back(temp_b);
             }
         }
     }
+    std::sort(eta.begin(), eta.end(), [](const betaset& a, const betaset& b) {return a.tr < b.tr; });
     return true;
 }
 int calc_remain_interf(const message& m,int t, std::vector<betaset>& beta) {
@@ -141,7 +149,7 @@ int calc_remain_interf(const message& m,int t, std::vector<betaset>& beta) {
     return R;
 }
 
-int calc_create_interf(const message& m, int t, int R, const std::vector<betaset>& eta) {
+int calc_create_interf(const message& m, const int t, const int R, const std::vector<betaset>& eta) {
     int next_free = R + t;
     int K = 0;
     int total_created = R;
