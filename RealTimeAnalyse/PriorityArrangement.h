@@ -3,7 +3,7 @@
 #include <stdexcept>
 #include<algorithm>
 #include "canfd_frame.h"
-
+#include<iostream>
 template<class T>
 T gcd(T a, T b);
 
@@ -35,6 +35,10 @@ bool  create_eta(const std::vector<message>& messageSet, const message& m, int t
 int calc_create_interf(const message& m, int t,int R, const std::vector<betaset>& eta);
 //检测任务集可行性
 bool feasibility_check(std::vector<message>& messageSet);
+bool feasibility_check(std::vector<message>& messageSet, int taski,int pri);
+bool feasibility_check(std::vector<message>& messageSet, std::vector<int>& assign_table);
+//优先级分配
+bool assign_priority(std::vector<message>& messageSet);
 class PriorityArrangement {
     
 };

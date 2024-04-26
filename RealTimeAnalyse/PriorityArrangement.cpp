@@ -104,7 +104,7 @@ bool create_beta(const std::vector<message>& messageSet,const message& m, int lo
         
         int offset = offset_trans(messageSet[i].offset, m.offset, messageSet[i].period);
         if (offset < upper) {
-            for (size_t j = 0; j * messageSet[i].period + offset < upper; j++) {
+            for (int j = 0; j * messageSet[i].period + offset < upper; j++) {
                 betaset temp_b(messageSet[i].exec_time, j * messageSet[i].period + offset);
                 beta.push_back(temp_b);
             }
@@ -124,7 +124,7 @@ bool  create_eta(const std::vector<message>& messageSet, const message& m, int t
         //tr=O+m*T,寻找【lower，upper】内所有可能的tr取值，o就是messageSet[i].offset，T是messageSet[i].period，m为常数
         int m = ceil((lower - offset) / (double)messageSet[i].period);
         if (m * messageSet[i].period + offset < upper) {
-            for (size_t j = 0; (m + j) * messageSet[i].period + offset < upper; j++) {
+            for (int j = 0; (m + j) * messageSet[i].period + offset < upper; j++) {
                 betaset temp_b(messageSet[i].exec_time, (m + j) * messageSet[i].period + offset);
                 eta.push_back(temp_b);
             }
@@ -190,7 +190,7 @@ bool feasibility_check(std::vector<message>& messageSet) {
             create_beta(messageSet, messageSet[i], lower[i], beta);
             R = calc_remain_interf(messageSet[i], lower[i], beta);
             create_eta(messageSet, messageSet[i], lower[i], R, eta);
-            K = calc_create_interf(messageSet[i], lower[i], R, beta);
+            K = calc_create_interf(messageSet[i], lower[i], R, eta);
             if (messageSet[i].exec_time + R + K > messageSet[i].deadline) {
                 //任务i永远不能可行，这使得任务集也不可行
                 beta.clear();
@@ -202,6 +202,75 @@ bool feasibility_check(std::vector<message>& messageSet) {
             eta.clear();
         }
     }
+    return true;
+}
+bool feasibility_check(std::vector<message>& messageSet, int taski,int pri) {
+    //TODO 可能存在一个问题，即每次循环都是从未分配优先级的任务集合中选取一个任务去试探分配优先级，这使得任务集合越来越小。
+    //     beta，eta等后续计算是否只用考虑未分配集合呢？解决方法是后续计算使用一个新的，不断更新（删除已分配优先级任务）的任务集合
+   //      
+    int t = 0, R = 0, K = 0;
+    std::vector<int> lower, upper;
+    find_interval(messageSet, lower, upper);
+    std::vector<betaset> beta, eta;
+
+    create_beta(messageSet, messageSet[taski], lower[taski], beta);
+    R = calc_remain_interf(messageSet[taski], lower[taski], beta);
+    create_eta(messageSet, messageSet[taski], lower[taski], R, eta);
+    K = calc_create_interf(messageSet[taski], lower[taski], R, eta);
+    std::cout << "R:" << R << "  K:" << K << std::endl;
+    if (messageSet[taski].exec_time + R + K > messageSet[taski].deadline) {
+        //任务i永远不能可行，这使得任务集也不可行
+        beta.clear();
+        eta.clear();
+        std::cout << "任务" << taski << "  分配优先级" << pri << "失败" << std::endl;
+        return false;
+    }
+    beta.clear();
+    eta.clear();
+   
+    return true;
+}
+bool feasibility_check(std::vector<message>& messageSet, std::vector<int>&assign_table) {
+    //TODO 可能存在一个问题，即每次循环都是从未分配优先级的任务集合中选取一个任务去试探分配优先级，这使得任务集合越来越小。
+    //     beta，eta等后续计算是否只用考虑未分配集合呢？解决方法是后续计算使用一个新的，不断更新（删除已分配优先级任务）的任务集合
+   //      
+    int t = 0, R = 0, K = 0;
+    std::vector<int> lower, upper;
+    find_interval(messageSet, lower, upper);
+    std::vector<betaset> beta, eta;
+    int taski=0;
+
+    std::vector<message*> pendingSet_p;
+    std::vector<message> pendingSet;
+    for (message& m : messageSet) {
+        pendingSet_p.push_back(&m);
+        pendingSet.push_back(m);
+    }
+
+    int pri= messageSet.size();
+    for (int i = 0; pri > 0; pri--, i++) {
+        //确认messageSet[assign_table[i]]对应的任务是否可行，可行则分配优先级pri并从pendingSet中删除该任务
+        //if (feasibility_check(pendingSet,assign_table[i])) {
+        //}
+        //第一步找到数组中对应任务的位置
+        auto it2 = std::find_if(pendingSet.begin(), pendingSet.end(), [&](const message& m) {
+            return m.id == assign_table[i];
+            });
+        if (it2 != pendingSet.end() && feasibility_check(pendingSet, std::distance(pendingSet.begin(), it2), pri)) {
+            auto it = pendingSet_p.begin() + std::distance(pendingSet.begin(), it2);
+            (*it)->priority = pri;
+            std::cout << "任务" << it2->id << "  分配优先级" << pri << "成功" << std::endl;
+            pendingSet_p.erase(it);
+            pendingSet.erase(it2);
+
+        }
+        else {
+            std::cout << "任务" << it2->id << "  分配优先级" << pri << "失败" <<"  分配策略有问题"<< std::endl;
+            return false;
+        }
+    }
+
+    
     return true;
 }
 bool canMeetDeadlines(const std::vector<message>& messageSet) {
@@ -238,5 +307,35 @@ bool canMeetDeadlines(const std::vector<message>& messageSet) {
     }
 
     // 如果遍历完所有消息对都没有发现关键期冲突，则所有消息都能按时完成
+    return true;
+}
+
+bool assign_priority(std::vector<message>& messageSet) {
+    std::vector<message*> pendingSet_p;
+    std::vector<message> pendingSet;
+    for (message& m : messageSet) {
+        pendingSet_p.push_back(&m);
+        pendingSet.push_back(m);
+    }
+    bool unassigned = true;
+    for (int pri = messageSet.size(); pri > 0; pri--) {
+        unassigned = true;
+        for (auto it = pendingSet_p.begin(); it != pendingSet_p.end(); ++it) {
+            auto it2 = pendingSet.begin() + (int)std::distance(pendingSet_p.begin(), it);
+            if (feasibility_check(pendingSet, (int)std::distance(pendingSet_p.begin(), it),pri)) {
+                (*it)->priority = pri;
+                pendingSet_p.erase(it); 
+                pendingSet.erase(it2);
+                unassigned = false;
+                break;
+
+            }
+        }
+        if (unassigned) {
+            return false;
+        }
+
+    }
+
     return true;
 }

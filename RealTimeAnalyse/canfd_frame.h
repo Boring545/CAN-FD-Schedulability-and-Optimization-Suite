@@ -10,7 +10,8 @@ public:
     int priority;  //优先级
     int deadline;   //消息截止日期
     int exec_time;
-    message(int size, int period, int deadline,int exec_time,int offset = 0, int priority=0) : data_size(size), period(period), deadline(deadline), exec_time(exec_time),priority(priority),offset(offset) {}
+    int id;
+    message(int size, int period, int deadline,int exec_time,int offset = 0, int id = -1,int priority=0) : id(id),data_size(size), period(period), deadline(deadline), exec_time(exec_time),priority(priority),offset(offset) {}
 };
 
 enum class CAN_Frame_Type {
