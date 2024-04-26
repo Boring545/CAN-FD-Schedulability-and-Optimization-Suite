@@ -12,8 +12,7 @@ int main()
 	std::vector<betaset> beta,eta;
 	std::vector<int> lower, upper;
 	find_interval(mset, lower, upper);
-	int i = 4;
-	std::cout << offset_trans(4, 27, 10);
+	int i = 5;
 	create_beta(mset, mset[i], lower[i], beta);
 	int R=calc_remain_interf(mset[i], lower[i], beta);
 	create_eta(mset, mset[i], lower[i], R, eta);

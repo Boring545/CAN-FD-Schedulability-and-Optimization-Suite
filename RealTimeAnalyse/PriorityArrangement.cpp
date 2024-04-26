@@ -110,7 +110,7 @@ bool create_beta(const std::vector<message>& messageSet,const message& m, int lo
             }
         }
     }
-   /* std::sort(beta.begin(), beta.end(), [](const betaset& a, const betaset& b) {return a.tr < b.tr; });*/
+    std::sort(beta.begin(), beta.end(), [](const betaset& a, const betaset& b) {return a.tr < b.tr; });
     return true;
 }
 bool  create_eta(const std::vector<message>& messageSet, const message& m, int t, int R, std::vector<betaset>& eta) {
@@ -120,29 +120,42 @@ bool  create_eta(const std::vector<message>& messageSet, const message& m, int t
     upper = lower + m.deadline;
     for (size_t i = 0; i < messageSet.size(); i++) {
         if (&(messageSet[i]) == &m) continue;
+        int offset = offset_trans(messageSet[i].offset, m.offset, messageSet[i].period);
         //tr=O+m*T,寻找【lower，upper】内所有可能的tr取值，o就是messageSet[i].offset，T是messageSet[i].period，m为常数
-        int m = ceil((lower - messageSet[i].offset) / (double)messageSet[i].period);
-        if (m * messageSet[i].period + messageSet[i].offset < upper) {
-            for (size_t j = 0; (m + j) * messageSet[i].period + messageSet[i].offset < upper; j++) {
-                betaset temp_b(messageSet[i].exec_time, (m + j) * messageSet[i].period + messageSet[i].offset);
+        int m = ceil((lower - offset) / (double)messageSet[i].period);
+        if (m * messageSet[i].period + offset < upper) {
+            for (size_t j = 0; (m + j) * messageSet[i].period + offset < upper; j++) {
+                betaset temp_b(messageSet[i].exec_time, (m + j) * messageSet[i].period + offset);
                 eta.push_back(temp_b);
             }
         }
+        //int m = ceil((lower - messageSet[i].offset) / (double)messageSet[i].period);
+        //if (m * messageSet[i].period + messageSet[i].offset < upper) {
+        //    for (size_t j = 0; (m + j) * messageSet[i].period + messageSet[i].offset < upper; j++) {
+        //        betaset temp_b(messageSet[i].exec_time, (m + j) * messageSet[i].period + messageSet[i].offset);
+        //        eta.push_back(temp_b);
+        //    }
+        //}
     }
     std::sort(eta.begin(), eta.end(), [](const betaset& a, const betaset& b) {return a.tr < b.tr; });
     return true;
 }
 int calc_remain_interf(const message& m,int t, std::vector<betaset>& beta) {
     int R = 0;
-    int lower= t - m.period + m.deadline;
+    int time= t - m.period + m.deadline;
+    time = 0;
     for (betaset b : beta) {
-        if (b.tr > lower + R) {
+        //time为之前一次任务m的启动时间，因为其他任务都能比任务m先执行，
+        //R为已经考虑的任务的执行的时间和，R+time<tr表示之前的任务自从release后，
+        //其一定执行完毕，下一个任务不需要再考虑以前的任务了。
+        if (b.tr >= time + R) {
             R = 0;
+            time = b.tr;
         }
-        lower = b.tr;
-        R += b.C;
+        int temp =  b.tr- time;
+        R =R+ b.C;
     }
-    R = R - (t - beta[beta.size() - 1].tr);
+    R = R +time-t;
     if (R < 0) {
         R = 0;
     }
