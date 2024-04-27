@@ -1,22 +1,14 @@
 #pragma once
 #include <vector>
-#include <stdexcept>
+
 #include<algorithm>
 #include "canfd_frame.h"
+#include"math_algorithms.h"
 #include<iostream>
 
 //#define DEBUG_OUTPUT
 #include"debug_tool.h"
 
-
-template<class T>
-T gcd(T a, T b);
-
-template<class T>
-T extended_gcd(T a, T b, int& x, int& y);
-
-template<class T>
-T lcm(T a, T b);
 //检测mset中的消息集是否存在关键期，第一次关键期值通过first_instant传回
 bool critical_check(const std::vector<message>& mset, int& first_instant);
 //检测消息集里的消息是否在instant时完成其任务,未完成

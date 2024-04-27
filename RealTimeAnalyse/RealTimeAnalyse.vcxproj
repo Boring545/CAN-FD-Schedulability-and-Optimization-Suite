@@ -147,8 +147,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="canfd_frame.h" />
+    <ClInclude Include="canfd_utils.h" />
     <ClInclude Include="debug_tool.h" />
     <ClInclude Include="FramePacking.h" />
+    <ClInclude Include="math_algorithms.h" />
     <ClInclude Include="PriorityArrangement.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="SchedualAnalyse.h" />

@@ -50,6 +50,12 @@
     <ClInclude Include="debug_tool.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="canfd_utils.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="math_algorithms.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="RealTimeAnalyse.rc">
