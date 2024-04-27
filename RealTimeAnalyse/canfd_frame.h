@@ -6,6 +6,7 @@
 class message {
 public:
     int data_size; // 数据尺寸
+    
     int period;    // 周期
     int offset;
     int priority;  //优先级
@@ -25,6 +26,7 @@ enum class CAN_Frame_Type {
 class canfd_frame {
 private:
     int data_size = 0;      // 已装载数据长度，默认为空
+    int payload_size = 0; //payload尺寸和数据尺寸不完全一样，取值有0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48 or 64 bytes
     int deadline=-1;  //TODO deadline和period也许需要在最开始给出一个默认值
     int period;      
 public:
@@ -39,12 +41,25 @@ public:
     ~canfd_frame() {
         message_list.clear();
     }
+    //将数据尺寸转换为合适的payload尺寸，payload取值有0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48 or 64 bytes，要求能装下数据
+    int payload_size_trans(int size) {
+        int payload_sizes[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48, 64 };
+        int num_sizes = sizeof(payload_sizes) / sizeof(payload_sizes[0]);
+        for (int i = 0; i < num_sizes; ++i) {
+            if (size <= payload_sizes[i]) {
+                return payload_sizes[i];
+            }
+        }
+        // 如果数据尺寸大于所有 payload 尺寸，返回最大的 payload 尺寸
+        return -1;
+    }
     bool add_message(message& m) {
         if (max_data_size - data_size < m.data_size) {
             return false;
         }
         else {
-            data_size += m.data_size;
+            this->data_size += m.data_size;
+            this->payload_size = payload_size_trans(this->data_size);
             message_list.push_back(&m);
             this->deadline = std::min(this->deadline, m.deadline);
             if (this->message_list.empty()) {
@@ -73,6 +88,7 @@ public:
         }
         else {
             data_size += accumulate_size;
+            this->payload_size = payload_size_trans(this->data_size);
             for (message& m : messageSet) {
                 message_list.push_back(&m);
             }
@@ -82,7 +98,12 @@ public:
             return true;
         }
     }
-
+    int get_paylaod_size() {
+        return this->payload_size;
+    }
+    int get_period() {
+        return this->period;
+    }
     //TODO 对数据帧中增加消息，会导致数据帧的deadline，data_size等特征发生变化，故要使得要变化的特征设为private
 };
 

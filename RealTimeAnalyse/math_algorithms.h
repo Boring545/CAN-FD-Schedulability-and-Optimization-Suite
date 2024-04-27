@@ -1,5 +1,6 @@
 #pragma once
 #include <stdexcept>
+//最大公因数
 template<class T>
 T gcd(T a, T b) {
     if (a <= 0 || b <= 0) {
@@ -13,7 +14,7 @@ T gcd(T a, T b) {
     }
     return a;
 }
-
+//扩展欧几里得算法
 template<class T>
 T extended_gcd(T a, T b, int& x, int& y) {
     if (b == 0) {
@@ -27,7 +28,7 @@ T extended_gcd(T a, T b, int& x, int& y) {
     y = x1 - (a / b) * y1;
     return gcd_val;
 }
-
+//最小公倍数
 template<class T>
 T lcm(T a, T b) {
     if (a <= 0 || b <= 0) {
