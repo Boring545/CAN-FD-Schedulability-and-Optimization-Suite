@@ -4,6 +4,11 @@
 #include<algorithm>
 #include "canfd_frame.h"
 #include<iostream>
+
+//#define DEBUG_OUTPUT
+#include"debug_tool.h"
+
+
 template<class T>
 T gcd(T a, T b);
 

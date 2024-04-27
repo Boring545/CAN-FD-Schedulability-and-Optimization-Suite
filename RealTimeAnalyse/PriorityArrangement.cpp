@@ -217,12 +217,14 @@ bool feasibility_check(std::vector<message>& messageSet, int taski,int pri) {
     R = calc_remain_interf(messageSet[taski], lower[taski], beta);
     create_eta(messageSet, messageSet[taski], lower[taski], R, eta);
     K = calc_create_interf(messageSet[taski], lower[taski], R, eta);
-    std::cout << "R:" << R << "  K:" << K << std::endl;
+    DEBUG_MSG("R:", R, "  K:", K);
+    //std::cout << "R:" << R << "  K:" << K << std::endl;
     if (messageSet[taski].exec_time + R + K > messageSet[taski].deadline) {
         //任务i永远不能可行，这使得任务集也不可行
         beta.clear();
         eta.clear();
-        std::cout << "任务" << taski << "  分配优先级" << pri << "失败" << std::endl;
+        DEBUG_MSG("任务" , taski , "  分配优先级" , pri , "失败");
+        //std::cout << "任务" << taski << "  分配优先级" << pri << "失败" << std::endl;
         return false;
     }
     beta.clear();
@@ -259,17 +261,25 @@ bool feasibility_check(std::vector<message>& messageSet, std::vector<int>&assign
         if (it2 != pendingSet.end() && feasibility_check(pendingSet, std::distance(pendingSet.begin(), it2), pri)) {
             auto it = pendingSet_p.begin() + std::distance(pendingSet.begin(), it2);
             (*it)->priority = pri;
-            std::cout << "任务" << it2->id << "  分配优先级" << pri << "成功" << std::endl;
+            DEBUG_MSG("任务" , it2->id , "  分配优先级" , pri , "成功");
+            //std::cout << "任务" << it2->id << "  分配优先级" << pri << "成功" << std::endl;
             pendingSet_p.erase(it);
             pendingSet.erase(it2);
 
         }
         else {
-            std::cout << "任务" << it2->id << "  分配优先级" << pri << "失败" <<"  分配策略有问题"<< std::endl;
+            std::cout << "=============================== " << std::endl;
+            std::cout << "任务" << it2->id << "  分配优先级" << pri << "失败" << "  分配策略有问题" << std::endl;
+            std::cout << "=============================== " << std::endl;
             return false;
         }
     }
-
+    std::cout << "=============================== " << std::endl;
+    std::cout << "优先级分配成功！！！ " << std::endl;
+    for (const message& m : messageSet) {
+        std::cout << "任务: " << m.id << "  优先级： " << m.priority << std::endl;
+    }
+    std::cout << "=============================== " << std::endl;
     
     return true;
 }
@@ -322,20 +332,38 @@ bool assign_priority(std::vector<message>& messageSet) {
         unassigned = true;
         for (auto it = pendingSet_p.begin(); it != pendingSet_p.end(); ++it) {
             auto it2 = pendingSet.begin() + (int)std::distance(pendingSet_p.begin(), it);
-            if (feasibility_check(pendingSet, (int)std::distance(pendingSet_p.begin(), it),pri)) {
+            //if (feasibility_check(pendingSet, (int)std::distance(pendingSet_p.begin(), it),pri)) {
+            //    (*it)->priority = pri;
+            //    pendingSet_p.erase(it); 
+            //    pendingSet.erase(it2);
+            //    unassigned = false;
+            //    break;
+
+            //}
+            if (it2 != pendingSet.end() && feasibility_check(pendingSet, std::distance(pendingSet.begin(), it2), pri)) {
                 (*it)->priority = pri;
-                pendingSet_p.erase(it); 
+                DEBUG_MSG("任务" , it2->id , "  分配优先级" , pri , "成功");
+                //std::cout << "任务" << it2->id << "  分配优先级" << pri << "成功" << std::endl;
+                pendingSet_p.erase(it);
                 pendingSet.erase(it2);
                 unassigned = false;
                 break;
-
             }
         }
         if (unassigned) {
             return false;
+            std::cout << "=============================== " << std::endl;
+            std::cout << "优先级分配失败。。。 " << std::endl;
+            std::cout << "=============================== " << std::endl;
         }
 
     }
 
+    std::cout << "=============================== " << std::endl;
+    std::cout << "优先级分配成功！！！ " << std::endl;
+    for (const message& m : messageSet) {
+        std::cout << "任务: " <<m.id<< "  优先级： "<<m.priority<< std::endl;
+    }
+    std::cout << "=============================== " << std::endl;
     return true;
 }

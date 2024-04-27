@@ -47,6 +47,9 @@
     <ClInclude Include="canfd_frame.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="debug_tool.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="RealTimeAnalyse.rc">
