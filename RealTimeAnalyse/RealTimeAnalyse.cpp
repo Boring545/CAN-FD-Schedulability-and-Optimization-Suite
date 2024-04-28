@@ -23,7 +23,7 @@ int main()
 	//	std::cout << "可分配："  << std::endl;
 	//}
 	std::vector<int> v = { 5,6,2,4,3,1 };
-	/*feasibility_check(mset, v);*/
+	//feasibility_check(mset, v);
 	assign_priority(mset);
 	return 0;
 }

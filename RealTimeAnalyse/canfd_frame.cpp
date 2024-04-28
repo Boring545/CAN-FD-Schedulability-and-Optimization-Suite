@@ -5,7 +5,7 @@ int canfd_frame::max_data_size = 64;
 
 
 
-bool canfd_frame::create_canfd_frame(canfd_frame& _frame, CAN_Frame_Type _type, std::string _identifier, std::vector<message>* _message_list ) {
+bool canfd_frame::create_canfd_frame(canfd_frame& _frame,int _id, CAN_Frame_Type _type, std::string _identifier, std::vector<message>* _message_list ) {
     if (_message_list == nullptr) {
         return false;
     }
@@ -13,6 +13,7 @@ bool canfd_frame::create_canfd_frame(canfd_frame& _frame, CAN_Frame_Type _type, 
         if (_frame.add_messageset(*_message_list)) {
             _frame.type = _type;
             _frame.set_identifier(_identifier);
+            _frame.id = _id;
             return true;
         }
         else {
@@ -21,13 +22,14 @@ bool canfd_frame::create_canfd_frame(canfd_frame& _frame, CAN_Frame_Type _type, 
     }
 
 }
-bool canfd_frame::create_canfd_frame(canfd_frame& _frame, CAN_Frame_Type _type, std::vector<message>* _message_list) {
+bool canfd_frame::create_canfd_frame(canfd_frame& _frame,int _id, CAN_Frame_Type _type, std::vector<message>* _message_list) {
     if (_message_list == nullptr) {
         return false;
     }
     else {
-        if (_frame.add_messageset(*_message_list)) {
+        if (_frame.add_messageset(*_message_list,true)) {
             _frame.type = _type;
+            _frame.id = _id;
             //这里的优先级就是消息的最大优先级
             return true;
         }
@@ -114,6 +116,7 @@ bool canfd_frame::add_message(message& m, bool priority_flag) {
         this->update_data_size(this->data_size += m.data_size);
         (this->message_list)->push_back(m);
         this->deadline = std::min(this->deadline, m.deadline);
+        this->exec_time += m.exec_time;
         if(priority_flag){ this->set_priority(std::min(this->priority, m.priority)); }
         if ((this->message_list)->empty()) {
             this->period = m.period;
@@ -129,7 +132,7 @@ bool canfd_frame::add_message(message& m, bool priority_flag) {
 bool canfd_frame::add_messageset(std::vector<message>& messageSet, bool priority_flag ) {
     if (messageSet.empty()) return false;
     int accumulate_size = 0, min_deadline = this->deadline, temp_period = messageSet[0].period;
-    int min_pri = this->priority;
+    int min_pri = this->priority, accumulate_exec=0;
     for (size_t i = 0; i < messageSet.size(); i++) {
         accumulate_size += messageSet[i].data_size;
         if (messageSet[i].deadline < min_deadline) {
@@ -139,6 +142,7 @@ bool canfd_frame::add_messageset(std::vector<message>& messageSet, bool priority
             min_pri = messageSet[i].priority;
         }
         temp_period = gcd(temp_period, messageSet[i].period);
+        accumulate_exec += messageSet[i].exec_time;
     }
 
     if (max_data_size - data_size < accumulate_size) {
@@ -152,6 +156,7 @@ bool canfd_frame::add_messageset(std::vector<message>& messageSet, bool priority
         //TODO 更新更多的可能信息
         this->deadline = min_deadline;
         this->period = temp_period;
+        this->exec_time += accumulate_exec;
         if (priority_flag) {
             this->set_priority(min_pri);
         }

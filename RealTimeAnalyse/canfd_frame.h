@@ -32,6 +32,9 @@ private:
     int period;     
     std::string identifier; // 优先级标识,一共11位二进制数，表示1~2048，需要将其换算为10进制存在priority中
     int priority=-1;
+    int exec_time=0;   //数据帧在系统内的执行时间，是所有装载任务的执行时间和
+    int id;
+
     //同步更新data_size、payload_size
     bool update_data_size(int size) {
         this->data_size = size;
@@ -41,24 +44,30 @@ private:
 public:
     int offset=0;
     CAN_Frame_Type type;    // 数据帧类型
-    
+
+
     static int max_data_size;   // 最大数据负载，默认为 64
     std::vector<message>* message_list; // 所装载的消息集合
 
     //创建canfd帧时，要么用于传递控制消息，要么用于包裹message来组成数据帧，控制消息估计会自动提供优先级，数据帧优先级由所传递的任务决定，故数据帧可不给优先级
     //创建控制帧
-    bool create_canfd_frame(canfd_frame& _frame, CAN_Frame_Type _type, std::string _identifier, std::vector<message>* _message_list = nullptr);
-    bool create_canfd_frame(canfd_frame& _frame, CAN_Frame_Type _type, std::vector<message>* _message_list);
+    bool create_canfd_frame(canfd_frame& _frame,int id ,CAN_Frame_Type _type, std::string _identifier, std::vector<message>* _message_list = nullptr);
+    bool create_canfd_frame(canfd_frame& _frame,int id, CAN_Frame_Type _type, std::vector<message>* _message_list);
     //将二进制优先级换算为整数优先级
     static int priority_trans(std::string identifier);
     ////将整数优先级换算为二进制优先级
     static std::string priority_trans(int priority);
     //将数据尺寸转换为合适的payload尺寸，payload取值有0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48 or 64 bytes，要求能装下数据
     static int payload_size_trans(int size);
-
+public:
     //设置identifier，同步更新priority
     bool set_identifier(std::string _identifier);
     bool set_priority(int priority);
+    //对周期的修改要慎重，最好别乱改，系统会在添加任务后自动计算
+    bool set_period(int p) {
+        this->period = p;
+        return true;
+    }
 
     //向frame添加消息m，同步更新data_size、payload_size，deadline、period，如priority_flag=true，优先级将根据任务优先级自动更新
     bool add_message(message& m,bool priority_flag = false);
@@ -67,18 +76,24 @@ public:
     //合并两个数据帧
     bool merge(canfd_frame& frame);
 
-
-    int get_priority() {
+public:
+    int get_priority() const{
         return this->priority;
     }
-    int get_paylaod_size() {
+    int get_paylaod_size() const {
         return this->payload_size;
     }
-    int get_period() {
+    int get_period() const {
         return this->period;
     }
-    int get_deadline() {
+    int get_deadline() const {
         return this->deadline;
+    }
+    int get_exec_time() const {
+        return this->exec_time;
+    }
+    int get_id() const{
+        return this->id;
     }
 
     canfd_frame() {}
