@@ -163,10 +163,10 @@ bool canfd_frame::add_messageset(std::vector<message>& messageSet, bool priority
         return true;
     }
 }
-    bool canfd_frame::merge(canfd_frame& frame) {
+    bool canfd_frame::merge(canfd_frame& frame,bool priority_flag) {
         if (this->type != frame.type) { return false; }
         //TODO 需要考虑offset怎么处理
-        if (this->add_messageset(*(frame.message_list),true)) {
+        if (this->add_messageset(*(frame.message_list), priority_flag)) {
             return true;
         }
         else {

@@ -73,8 +73,8 @@ public:
     bool add_message(message& m,bool priority_flag = false);
     //向frame添加消息集合中的所有消息，同步更新data_size、payload_size，deadline、period,如priority_flag=true，优先级将根据任务优先级自动更新
     bool add_messageset(std::vector<message>& messageSet,bool priority_flag=false);
-    //合并两个数据帧
-    bool merge(canfd_frame& frame);
+    //合并两个数据帧,, bool priority_flag=true 则自动更新优先级
+    bool merge(canfd_frame& frame, bool priority_flag=false);
 
 public:
     int get_priority() const{
