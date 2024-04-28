@@ -1,7 +1,29 @@
 
 #include "PriorityArrangement.h"
 
-
+////检测frame_set里的帧集合是否存在关键期，关键期时间通过first_instant返回
+//bool critical_check(const std::vector<canfd_frame>& frame_set, int& first_instant){
+//    int temp_period = 0, temp_gcd = 0;
+//    int x = 0, y = 0, h = 0, k = 0, t = 0;
+//    canfd_frame temp_m = frame_set[0];
+//    if (frame_set.size() < 2) return false;
+//    for (size_t i = 1; i < frame_set.size(); i++) {
+//        temp_gcd = extended_gcd(temp_m.get_period(), frame_set[i].period, x, y);
+//        temp_period = temp_m.get_period() * frame_set[i].period / temp_gcd;
+//        if (abs(temp_m.offset - frame_set[i].offset) % temp_gcd == 0) {
+//            h = abs(temp_m.offset - frame_set[i].offset) / temp_gcd;
+//            k = static_cast<int>(ceil((static_cast<double>(abs(x)) * h * temp_m.get_period()) / temp_period));
+//            t = (h * x) * temp_m.get_period() + k * temp_period;
+//            temp_m.offset = t - static_cast<int>(floor(t / temp_period)) * temp_period;
+//            temp_m.get_period() = temp_period;
+//        }
+//        else {
+//            return false;
+//        }
+//    }
+//    first_instant = t;
+//    return true;
+//}
 bool critical_check(const std::vector<message>& mset, int& first_instant) {
     int temp_period = 0, temp_gcd = 0;
     int x = 0, y = 0, h = 0, k = 0, t = 0;
@@ -24,11 +46,11 @@ bool critical_check(const std::vector<message>& mset, int& first_instant) {
     first_instant = t;
     return true;
 }
-int offset_trans(int target, int basis,int T) {
+int offset_trans(int target, int basis, int T) {
     if (target < basis) {
-        target = ceil((basis - target) / static_cast<double>(T))*T + target;
+        target = ceil(((double)basis - target) / T) * T + target;
     }
-    return target-basis;
+    return target - basis;
 }
 bool find_interval(const std::vector<message>& messageSet, std::vector<int>& lower_bound, std::vector<int>& upper_bound) {
     if (messageSet.empty()) return false;
@@ -79,6 +101,8 @@ bool create_beta(const std::vector<message>& messageSet,const message& m, int lo
     std::sort(beta.begin(), beta.end(), [](const betaset& a, const betaset& b) {return a.tr < b.tr; });
     return true;
 }
+
+
 bool  create_eta(const std::vector<message>& messageSet, const message& m, int t, int R, std::vector<betaset>& eta) {
     int c = 0, tr = 0;
     int upper = 0, lower = 0;
@@ -88,7 +112,7 @@ bool  create_eta(const std::vector<message>& messageSet, const message& m, int t
         if (&(messageSet[i]) == &m) continue;
         int offset = offset_trans(messageSet[i].offset, m.offset, messageSet[i].period);
         //tr=O+m*T,寻找【lower，upper】内所有可能的tr取值，o就是messageSet[i].offset，T是messageSet[i].period，m为常数
-        int m = ceil((lower - offset) / (double)messageSet[i].period);
+        int m = ceil(((double)lower - offset) / (double)messageSet[i].period);
         if (m * messageSet[i].period + offset < upper) {
             for (int j = 0; (m + j) * messageSet[i].period + offset < upper; j++) {
                 betaset temp_b(messageSet[i].exec_time, (m + j) * messageSet[i].period + offset);

@@ -13,6 +13,7 @@ public:
     int deadline;   //消息截止日期
     int exec_time;
     int id;
+    std::string data; //用于装载传输的信息，默认不填写，大小可能有限制
     message(int size, int period, int deadline,int exec_time,int offset = 0, int id = -1,int priority=0) : id(id),data_size(size), period(period), deadline(deadline), exec_time(exec_time),priority(priority),offset(offset) {}
 };
 
@@ -28,75 +29,47 @@ private:
     int data_size = 0;      // 已装载数据长度，默认为空
     int payload_size = 0; //payload尺寸和数据尺寸不完全一样，取值有0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48 or 64 bytes
     int deadline=-1;  //TODO deadline和period也许需要在最开始给出一个默认值
-    int period;      
+    int period;     
+    std::string identifier; // 优先级标识,一共11位二进制数，表示1~2048，需要将其换算为10进制存在priority中
+    int priority=-1;
+    //同步更新data_size、payload_size
+    bool update_data_size(int size) {
+        this->data_size = size;
+        this->payload_size = payload_size_trans(size);
+        return true;
+    }
 public:
-    std::string identifier; // 优先级标识
+    int offset=0;
     CAN_Frame_Type type;    // 数据帧类型
     
     static int max_data_size;   // 最大数据负载，默认为 64
-    std::vector<message*> message_list; // 所装载的消息集合
+    std::vector<message>* message_list; // 所装载的消息集合
 
-    canfd_frame(std::string identifier, CAN_Frame_Type type, int data_size = 0)
-        : identifier(identifier), type(type) {}
-    ~canfd_frame() {
-        message_list.clear();
-    }
+    //创建canfd帧时，要么用于传递控制消息，要么用于包裹message来组成数据帧，控制消息估计会自动提供优先级，数据帧优先级由所传递的任务决定，故数据帧可不给优先级
+    //创建控制帧
+    bool create_canfd_frame(canfd_frame& _frame, CAN_Frame_Type _type, std::string _identifier, std::vector<message>* _message_list = nullptr);
+    bool create_canfd_frame(canfd_frame& _frame, CAN_Frame_Type _type, std::vector<message>* _message_list);
+    //将二进制优先级换算为整数优先级
+    static int priority_trans(std::string identifier);
+    ////将整数优先级换算为二进制优先级
+    static std::string priority_trans(int priority);
     //将数据尺寸转换为合适的payload尺寸，payload取值有0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48 or 64 bytes，要求能装下数据
-    int payload_size_trans(int size) {
-        int payload_sizes[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48, 64 };
-        int num_sizes = sizeof(payload_sizes) / sizeof(payload_sizes[0]);
-        for (int i = 0; i < num_sizes; ++i) {
-            if (size <= payload_sizes[i]) {
-                return payload_sizes[i];
-            }
-        }
-        // 如果数据尺寸大于所有 payload 尺寸，返回最大的 payload 尺寸
-        return -1;
-    }
-    bool add_message(message& m) {
-        if (max_data_size - data_size < m.data_size) {
-            return false;
-        }
-        else {
-            this->data_size += m.data_size;
-            this->payload_size = payload_size_trans(this->data_size);
-            message_list.push_back(&m);
-            this->deadline = std::min(this->deadline, m.deadline);
-            if (this->message_list.empty()) {
-                this->period = m.period;
-            }
-            else {
-                this->period = gcd(this->period, m.period);
-            }
+    static int payload_size_trans(int size);
 
-            return true;
-        }
-    }
-    bool add_messageset(std::vector<message>&messageSet) {
-        if (messageSet.empty()) return false;
-        int accumulate_size = 0, min_deadline = this->deadline,temp_period=messageSet[0].period;
-        for (int i = 0; i < messageSet.size(); i++) {
-            accumulate_size += messageSet[i].data_size;
-            if (messageSet[i].deadline < min_deadline) { // 这里调用了 deadline() 函数，应该是 deadline，不需要括号
-                min_deadline = messageSet[i].deadline;
-            }
-            temp_period= gcd(temp_period, messageSet[i].period);
-        }
+    //设置identifier，同步更新priority
+    bool set_identifier(std::string _identifier);
+    bool set_priority(int priority);
 
-        if (max_data_size - data_size < accumulate_size) {
-            return false;
-        }
-        else {
-            data_size += accumulate_size;
-            this->payload_size = payload_size_trans(this->data_size);
-            for (message& m : messageSet) {
-                message_list.push_back(&m);
-            }
-            //TODO 更新更多的可能信息
-            this->deadline = min_deadline;
-            this->period = temp_period;
-            return true;
-        }
+    //向frame添加消息m，同步更新data_size、payload_size，deadline、period，如priority_flag=true，优先级将根据任务优先级自动更新
+    bool add_message(message& m,bool priority_flag = false);
+    //向frame添加消息集合中的所有消息，同步更新data_size、payload_size，deadline、period,如priority_flag=true，优先级将根据任务优先级自动更新
+    bool add_messageset(std::vector<message>& messageSet,bool priority_flag=false);
+    //合并两个数据帧
+    bool merge(canfd_frame& frame);
+
+
+    int get_priority() {
+        return this->priority;
     }
     int get_paylaod_size() {
         return this->payload_size;
@@ -104,7 +77,14 @@ public:
     int get_period() {
         return this->period;
     }
-    //TODO 对数据帧中增加消息，会导致数据帧的deadline，data_size等特征发生变化，故要使得要变化的特征设为private
+    int get_deadline() {
+        return this->deadline;
+    }
+
+    canfd_frame() {}
+    ~canfd_frame() {
+        message_list->clear();
+    }
 };
 
 

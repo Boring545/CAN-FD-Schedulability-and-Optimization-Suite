@@ -9,6 +9,10 @@
 //#define DEBUG_OUTPUT
 #include"debug_tool.h"
 
+//检测frame_set里的帧集合是否存在关键期，关键期时间通过first_instant返回
+bool critical_check(const std::vector<canfd_frame>& frame_set, int& first_instant);
+
+
 //检测mset中的消息集是否存在关键期，第一次关键期值通过first_instant传回
 bool critical_check(const std::vector<message>& mset, int& first_instant);
 //检测消息集里的消息是否在instant时完成其任务,未完成
