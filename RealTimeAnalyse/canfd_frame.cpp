@@ -40,6 +40,8 @@ bool canfd_frame::create_canfd_frame(canfd_frame& _frame,int _id, CAN_Frame_Type
 
 }
 
+
+
 int canfd_frame::priority_trans(std::string identifier) {
     if (identifier.size() != 11)
         return -2;

@@ -22,18 +22,20 @@ enum class CAN_Frame_Type {
     Remote_Frame,
     Error_Frame,
     Overload_Frame,
-    Interframe_Space
+    Interframe_Space,
+    NULL_FRAME
 };
 class canfd_frame {
 private:
     int data_size = 0;      // 已装载数据长度，默认为空
     int payload_size = 0; //payload尺寸和数据尺寸不完全一样，取值有0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48 or 64 bytes
     int deadline=-1;  //TODO deadline和period也许需要在最开始给出一个默认值
-    int period;     
+    int period=-1;     
     std::string identifier; // 优先级标识,一共11位二进制数，表示1~2048，需要将其换算为10进制存在priority中
     int priority=-1;
     int exec_time=0;   //数据帧在系统内的执行时间，是所有装载任务的执行时间和
-    int id;
+    int id=-1;
+    CAN_Frame_Type type;    // 数据帧类型
 
     //同步更新data_size、payload_size
     bool update_data_size(int size) {
@@ -42,17 +44,18 @@ private:
         return true;
     }
 public:
-    int offset=0;  //TODO 数据帧的offset，
-    CAN_Frame_Type type;    // 数据帧类型
+    int offset=0;  //可以使用assign_offset方法分配frame集合中所有任务的合适offset
+    
 
 
     static int max_data_size;   // 最大数据负载，默认为 64
     std::vector<message>* message_list; // 所装载的消息集合
+    
 
     //创建canfd帧时，要么用于传递控制消息，要么用于包裹message来组成数据帧，控制消息估计会自动提供优先级，数据帧优先级由所传递的任务决定，故数据帧可不给优先级
     //创建控制帧
     bool create_canfd_frame(canfd_frame& _frame,int id ,CAN_Frame_Type _type, std::string _identifier, std::vector<message>* _message_list = nullptr);
-    bool create_canfd_frame(canfd_frame& _frame,int id, CAN_Frame_Type _type, std::vector<message>* _message_list);
+    bool create_canfd_frame(canfd_frame& _frame, int _id, CAN_Frame_Type _type, std::vector<message>* _message_list);
     //将二进制优先级换算为整数优先级
     static int priority_trans(std::string identifier);
     ////将整数优先级换算为二进制优先级
@@ -95,11 +98,30 @@ public:
     int get_id() const{
         return this->id;
     }
+    CAN_Frame_Type get_type() {
+        return this->type;
+    }
 
-    canfd_frame() {}
+    canfd_frame() {
+        type = CAN_Frame_Type::NULL_FRAME;
+
+
+    }
     ~canfd_frame() {
         message_list->clear();
+        identifier.clear();
+    }
+    void clear() {
+        this->type = CAN_Frame_Type::NULL_FRAME;
+        data_size = 0;
+        payload_size = 0;
+        deadline = -1;
+        period = -1;
+        identifier.clear();
+        priority = -1;
+        exec_time = 0;
+        id = -1;
+        offset = 0;
     }
 };
-
 

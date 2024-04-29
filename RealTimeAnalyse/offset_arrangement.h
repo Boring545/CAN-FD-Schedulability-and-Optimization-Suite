@@ -39,10 +39,10 @@ bool  assign_offset(std::vector<canfd_frame>& frame_set) {
 	}
 	int g = calc_time_granularity(frame_set);
 	std::vector<int> released(frame_set_p[frame_set_p.size() - 1]->get_period() / g, 0);
-	int index = 0, max_interval = 0, left = 0, right = 0, max_offset, temp = 0,max_left=0,max_right=0;
+	int index = 0, max_interval = 0, left = 0, right = 0, temp = 0,max_left=0,max_right=0;
 	for (size_t i=0; i < frame_set_p.size(); i++) {
 		index = (0 * frame_set_p[i]->get_period() + frame_set_p[i]->offset) / g;
-		for (int k = 0;   index< released.size(); ) {
+		for (int k = 0;   index< (int)released.size(); ) {
 			//TODO 双向搜索，记录最大区间
 			left = index;
 			right = index;
@@ -72,7 +72,7 @@ bool  assign_offset(std::vector<canfd_frame>& frame_set) {
 		int new_offset = (max_left + 1 + max_interval / 2) % released.size();
 		frame_set_p[i]->offset = new_offset;
 	}
-
+	return true;
 }
 
 

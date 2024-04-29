@@ -18,7 +18,7 @@ public:
 	//计算最坏情况下的传输时间
 	int calc_wctt(canfd_frame frame) {
 		int p = frame.get_paylaod_size();
-		int wctt = 32 * t_arb + (28 + 5 * ceil(p - 16 / 64.0) + 10 * p) * t_data;
+		int wctt = 32 * t_arb + (28 + 5 * ceil(p - 16 / 64.0) + 10.0 * p) * t_data;
 		return wctt;
 	}
 	//计算最好情况下的传输时间
