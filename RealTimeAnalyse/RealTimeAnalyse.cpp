@@ -29,6 +29,10 @@ int main()
 
 	//TODO 
 	/*assign_priority(mset);*/
+	std::vector<message> message_set;
+	message::parallel_generate_messages(message_set, 50);
+	message::write_messages(message_set,1, "D:/document/CODE/C++/RealTimeAnalyse/RealTimeAnalyse/input",true);
+
 	return 0;
 }
 

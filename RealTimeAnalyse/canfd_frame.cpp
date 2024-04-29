@@ -6,7 +6,7 @@ int canfd_frame::max_data_size = 64;
 //文件开始为描述信息，如果读取到空行，此后每行表示一个message，数据间使用\t分割
 //data_size, period, deadline, priority, exec_time ≥0，priority ∈[0, 2047], data size 不应超过 64 bytes
 //deadline 应小于 period, exec_time 应小于 deadline
-std::vector<message> read_messages(const std::string& filename) {
+std::vector<message> message::read_messages(const std::string& filename) {
     std::ifstream file(filename);
     std::vector<message> messages;
 
@@ -80,7 +80,7 @@ std::vector<message> read_messages(const std::string& filename) {
     return messages;
 }
 //将message_set写入filename内，append=true使得直接在上次的内容后追加写入
-void write_messages(const std::vector<message>& message_set, const std::string& filename, bool append = false) {
+void message::write_messages(const std::vector<message>& message_set, const std::string& filename, bool append) {
     std::ofstream file;
     if (append) {
         file.open(filename, std::ios::app); // 追加模式
@@ -104,15 +104,20 @@ void write_messages(const std::vector<message>& message_set, const std::string& 
     }
     file.close();
 }
-void write_messages(const std::vector<message>& message_set, int ecu_id, const std::string& directory, bool append = false) {
+void message::write_messages(const std::vector<message>& message_set, int ecu_id, const std::string& directory, bool append) {
     // 构造文件名
-    std::string filename = directory + "/ecu" + std::to_string(ecu_id) + "_message.txt";
+    std::string filename = directory + "/ecu" + std::to_string(ecu_id) + "_messages.txt";
     // 调用原始函数
-    write_messages(message_set, ecu_id, directory, append);
+    write_messages(message_set, filename, append);
 }
 
+std::vector<message> message::read_messages(int ecu_id, const std::string& directory) {
+    // 构造文件名
+    std::string filename = directory + "/ecu" + std::to_string(ecu_id) + "_messages.txt";
+    return read_messages(filename);
+}
 //随机生成一个合规的messgae
-message generate_random_message() {
+message message::generate_random_message() {
     std::random_device rd;
     std::mt19937 gen(rd());
 
@@ -142,7 +147,7 @@ message generate_random_message() {
     return message(id, data_size, period, deadline, priority, exec_time, data);
 }
 // 并行生成随机 message 的函数
-void parallel_generate_messages(std::vector<message>& message_set, size_t num_messages) {
+void message::parallel_generate_messages(std::vector<message>& message_set, size_t num_messages) {
     std::mutex mutex; // 互斥锁，用于保护共享资源 messages
 
     // 获取系统支持的线程数量

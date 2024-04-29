@@ -28,7 +28,17 @@ public:
     :id(_id),data_size(_data_size),period(_period),deadline(_deadline),priority(_priority),exec_time(_exec_time){
         data = _data;
     }
+    //从文件读取messageset
     static std::vector<message> read_messages(const std::string& filename);
+    static std::vector<message> read_messages(int ecu_id, const std::string& directory);
+    //将message_set写入filename内，append=true使得直接在上次的内容后追加写入
+    static void write_messages(const std::vector<message>& message_set, const std::string& filename, bool append = false);
+    
+    static void write_messages(const std::vector<message>& message_set, int ecu_id, const std::string& directory, bool append = false);
+    //随机生成一个合规的messgae
+    static message generate_random_message();
+    // 并行生成随机 message 的函数
+    static void parallel_generate_messages(std::vector<message>& message_set, size_t num_messages);
 
 };
 

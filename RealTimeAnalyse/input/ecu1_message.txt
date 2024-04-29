@@ -1,3 +1,0 @@
-文件结构：ID（int）   datasize(int)    period(int)  deadline(int)    priority（int）   exec_time（int）  data(数据长度在64byte内)   
-文件开始为描述信息，如果读取到空行，此后每行表示一个message，
-
