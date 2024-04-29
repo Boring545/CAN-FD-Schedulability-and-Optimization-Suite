@@ -39,7 +39,7 @@ public:
     static message generate_random_message();
     // 并行生成随机 message 的函数
     static void parallel_generate_messages(std::vector<message>& message_set, size_t num_messages);
-
+    static void print_messages(const std::vector<message>&message_set);
 };
 
 

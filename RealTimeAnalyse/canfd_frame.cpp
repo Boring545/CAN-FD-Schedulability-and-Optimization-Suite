@@ -65,7 +65,7 @@ std::vector<message> message::read_messages(const std::string& filename) {
             continue; // 跳过当前行
         }
 
-        if (deadline >= period || exec_time < deadline) {
+        if (deadline > period || exec_time > deadline) {
             std::cerr << "Error: 不合法的输入 位于 行 " << line_number << " (deadline 应小于 period, exec_time 应小于 deadline)" << std::endl;
             continue; // 跳过当前行
         }
@@ -90,7 +90,7 @@ void message::write_messages(const std::vector<message>& message_set, const std:
     }
 
     if (!file.is_open()) {
-        std::cerr << "Error: Unable to open file " << filename << std::endl;
+        std::cerr << "Error:无法打开文件 " << filename << std::endl;
         return;
     }
     // 写入消息描述信息，仅在非追加模式下写入
@@ -124,15 +124,19 @@ message message::generate_random_message() {
     // 生成随机的数据
     std::uniform_int_distribution<int> id_dist(0, 999);
     std::uniform_int_distribution<int> period_dist(1, 100);
-    std::uniform_int_distribution<int> deadline_dist(0, period_dist(gen) - 1);
+    int period = period_dist(gen);
+
+    std::uniform_int_distribution<int> deadline_dist(1, period);
+    int deadline = deadline_dist(gen);
+
     std::uniform_int_distribution<int> priority_dist(0, 2047);
-    std::uniform_int_distribution<int> exec_time_dist(0, deadline_dist(gen));
+
+    std::uniform_int_distribution<int> exec_time_dist(0, deadline);
+    int exec_time = exec_time_dist(gen);
 
     int id = id_dist(gen);
-    int period = period_dist(gen);
-    int deadline = deadline_dist(gen);
     int priority = priority_dist(gen);
-    int exec_time = exec_time_dist(gen);
+
 
     // 生成随机的 data
     std::uniform_int_distribution<int> data_size_dist(0, 64);
@@ -177,7 +181,12 @@ void message::parallel_generate_messages(std::vector<message>& message_set, size
     }
 }
 
-
+void message::print_messages(const std::vector<message>&message_set) {
+    std::cout << "ID\tdatasize(\tperiod\tdeadline\tpriority\texec_time\tdata\n";
+    for (size_t i = 0; i < message_set.size(); i++) {
+        std::cout << message_set[i].id << '\t' << message_set[i].data_size << '\t' << message_set[i].period << '\t' << message_set[i].deadline << '\t' << message_set[i].priority << '\t' << message_set[i].exec_time << '\t' << message_set[i].data << '\n';
+    }
+}
 bool canfd_frame::create_canfd_frame(canfd_frame& _frame,int _id, CAN_Frame_Type _type, std::string _identifier, std::vector<message>* _message_list ) {
     if (_message_list == nullptr) {
         return false;
