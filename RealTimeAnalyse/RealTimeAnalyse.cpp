@@ -24,7 +24,11 @@ int main()
 	//}
 	std::vector<int> v = { 5,6,2,4,3,1 };
 	//feasibility_check(mset, v);
-	assign_priority(mset);
+
+
+
+	//TODO 
+	/*assign_priority(mset);*/
 	return 0;
 }
 

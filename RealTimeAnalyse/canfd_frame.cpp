@@ -122,7 +122,7 @@ bool canfd_frame::add_message(message& m, bool priority_flag) {
             this->period = m.period;
         }
         else {
-            this->period = gcd(this->period, m.period);
+            this->period = my_algorithm::gcd(this->period, m.period);
         }
 
         return true;
@@ -141,7 +141,7 @@ bool canfd_frame::add_messageset(std::vector<message>& messageSet, bool priority
         if (messageSet[i].priority < min_pri) {
             min_pri = messageSet[i].priority;
         }
-        temp_period = gcd(temp_period, messageSet[i].period);
+        temp_period = my_algorithm::gcd(temp_period, messageSet[i].period);
         accumulate_exec += messageSet[i].exec_time;
     }
 

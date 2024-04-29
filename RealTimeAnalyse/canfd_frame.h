@@ -42,7 +42,7 @@ private:
         return true;
     }
 public:
-    int offset=0;
+    int offset=0;  //TODO 数据帧的offset，
     CAN_Frame_Type type;    // 数据帧类型
 
 

@@ -13,7 +13,7 @@ bool critical_check(const std::vector<canfd_frame>& frame_set, int& first_instan
     canfd_frame temp_m = frame_set[0];
     if (frame_set.size() < 2) return false;
     for (size_t i = 1; i < frame_set.size(); i++) {
-        temp_gcd = extended_gcd(temp_m.get_period(), frame_set[i].get_period(), x, y);
+        temp_gcd = my_algorithm::extended_gcd(temp_m.get_period(), frame_set[i].get_period(), x, y);
         temp_period = temp_m.get_period() * frame_set[i].get_period() / temp_gcd;
         if (abs(temp_m.offset - frame_set[i].offset) % temp_gcd == 0) {
             h = abs(temp_m.offset - frame_set[i].offset) / temp_gcd;
@@ -37,7 +37,7 @@ bool find_interval(const std::vector<canfd_frame>& frame_set, std::vector<int>& 
 
     for (size_t j = 1; j < frame_set.size(); j++) {
         omax[j] = std::max(omax[j - 1], frame_set[j].offset);
-        temp_p[j] = lcm(temp_p[j - 1], frame_set[j].get_period());
+        temp_p[j] = my_algorithm::lcm(temp_p[j - 1], frame_set[j].get_period());
     }
     lower_bound.resize(frame_set.size());
     upper_bound.resize(frame_set.size());
@@ -159,9 +159,6 @@ bool feasibility_check(std::vector<canfd_frame>& frame_set, int taski, int pri) 
 }
 
 bool feasibility_check(std::vector<canfd_frame>& frame_set, std::vector<int>& assign_table) {
-    //TODO 可能存在一个问题，即每次循环都是从未分配优先级的任务集合中选取一个任务去试探分配优先级，这使得任务集合越来越小。
-    //     beta，eta等后续计算是否只用考虑未分配集合呢？解决方法是后续计算使用一个新的，不断更新（删除已分配优先级任务）的任务集合
-   //      
     int t = 0, R = 0, K = 0;
     std::vector<int> lower, upper;
     if (find_interval(frame_set, lower, upper)) { return false; }
@@ -186,7 +183,8 @@ bool feasibility_check(std::vector<canfd_frame>& frame_set, std::vector<int>& as
             });
         if (it2 != pendingSet.end() && feasibility_check(pendingSet, std::distance(pendingSet.begin(), it2), pri)) {
             auto it = pendingSet_p.begin() + std::distance(pendingSet.begin(), it2);
-            (*it)->set_priority(pri);
+            /*(*it)->set_priority(pri);*/
+            //优先级应在最后成功后统一分配
             DEBUG_MSG("任务", it2->get_id(), "  分配优先级", pri, "成功");
             pendingSet_p.erase(it);
             pendingSet.erase(it2);
@@ -201,8 +199,9 @@ bool feasibility_check(std::vector<canfd_frame>& frame_set, std::vector<int>& as
     }
     std::cout << "=============================== " << std::endl;
     std::cout << "优先级分配成功！！！ " << std::endl;
-    for (const canfd_frame& frame : frame_set) {
-        std::cout << "任务: " << frame.get_id() << "  优先级： " << frame.get_priority() << std::endl;
+    for (size_t i = 0; i < assign_table.size(); i++) {
+        frame_set[assign_table[i]].set_priority(frame_set.size() - i);
+        std::cout << "任务: " << frame_set[assign_table[i]].get_id() << "  优先级： " << frame_set[assign_table[i]].get_priority() << std::endl;
     }
     std::cout << "=============================== " << std::endl;
 
