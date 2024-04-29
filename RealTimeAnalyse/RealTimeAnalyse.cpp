@@ -30,8 +30,13 @@ int main()
 	//TODO 
 	/*assign_priority(mset);*/
 	std::vector<message> message_set;
-	
-	message::parallel_generate_messages(message_set, 5000);
+	std::vector<int> available_ids;
+	available_ids.resize(9000);
+	for (int i = 0; i < 9000; i++) {
+		available_ids[i] = i;
+	}
+	std::mutex id_mutex;
+	message::parallel_generate_messages(message_set, 5000, available_ids, id_mutex);
 	message::write_messages(message_set,1, "D:/document/CODE/C++/RealTimeAnalyse/RealTimeAnalyse/input");
 	std::vector<message> message_set2=message::read_messages(1, "D:/document/CODE/C++/RealTimeAnalyse/RealTimeAnalyse/input");
 	message::print_messages(message_set2);

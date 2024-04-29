@@ -116,13 +116,29 @@ std::vector<message> message::read_messages(int ecu_id, const std::string& direc
     std::string filename = directory + "/ecu" + std::to_string(ecu_id) + "_messages.txt";
     return read_messages(filename);
 }
-//随机生成一个合规的messgae
-message message::generate_random_message() {
+message message::generate_random_message(std::vector<int>& available_ids, std::mutex& id_mutex) {
     std::random_device rd;
     std::mt19937 gen(rd());
 
-    // 生成随机的数据
-    std::uniform_int_distribution<int> id_dist(0, 999);
+    std::unique_lock<std::mutex> lock(id_mutex); // 对 id_mutex 进行加锁
+
+    if (available_ids.empty()) {
+        return message(); // 如果可用id的数组为空，返回默认的 message 对象
+    }
+
+    // 生成随机索引
+    std::uniform_int_distribution<int> index_dist(0, available_ids.size() - 1);
+    int index = index_dist(gen);
+
+    // 获取随机选择的id
+    int id = available_ids[index];
+
+    // 将已选择的id从可用id数组中移除
+    available_ids.erase(available_ids.begin() + index);
+
+    lock.unlock(); // 解锁
+
+    // 生成随机的 period、deadline、priority、exec_time 和 data_size
     std::uniform_int_distribution<int> period_dist(1, 100);
     int period = period_dist(gen);
 
@@ -130,56 +146,91 @@ message message::generate_random_message() {
     int deadline = deadline_dist(gen);
 
     std::uniform_int_distribution<int> priority_dist(0, 2047);
+    int priority = priority_dist(gen);
 
     std::uniform_int_distribution<int> exec_time_dist(0, deadline);
     int exec_time = exec_time_dist(gen);
 
-    int id = id_dist(gen);
-    int priority = priority_dist(gen);
-
-
-    // 生成随机的 data
     std::uniform_int_distribution<int> data_size_dist(0, 64);
     int data_size = data_size_dist(gen);
+
+    // 生成随机的 data
     std::string data;
-    // 生成随机数据
     for (int i = 0; i < data_size; ++i) {
-        char random_char = static_cast<char>(gen() % 26 + 'a'); // 生成随机字符
+        char random_char = static_cast<char>(gen() % 26 + 'a');
         data.push_back(random_char);
     }
 
+    // 返回生成的 message 对象
     return message(id, data_size, period, deadline, priority, exec_time, data);
 }
-// 并行生成随机 message 的函数
-void message::parallel_generate_messages(std::vector<message>& message_set, size_t num_messages) {
-    std::mutex mutex; // 互斥锁，用于保护共享资源 messages
 
-    // 获取系统支持的线程数量
-    size_t num_threads = std::thread::hardware_concurrency();
-    // 计算每个线程生成的消息数量
-    size_t messages_per_thread = num_messages / num_threads;
 
+//void message::parallel_generate_messages(std::vector<message>& message_set, size_t num_messages) {
+//    // 获取系统支持的线程数量
+//    size_t num_threads = std::thread::hardware_concurrency();
+//    // 计算每个线程生成的消息数量
+//    size_t messages_per_thread = num_messages / num_threads;
+//
+//    // 创建线程并生成消息
+//    std::vector<std::vector<message>> thread_message_sets(num_threads);
+//    std::vector<std::thread> threads;
+//    for (size_t i = 0; i < num_threads; ++i) {
+//        threads.emplace_back([&](size_t thread_index) {
+//            // 在每个线程中生成消息
+//            for (size_t j = 0; j < messages_per_thread; ++j) {
+//                // 调用生成随机 message 的函数
+//                message new_message = generate_random_message();
+//                // 将生成的 message 添加到该线程的消息集合中
+//                thread_message_sets[thread_index].push_back(new_message);
+//            }
+//            }, i);
+//    }
+//
+//    // 等待所有线程结束
+//    for (auto& thread : threads) {
+//        thread.join();
+//    }
+//
+//    // 将每个线程生成的消息合并到 message_set 中
+//    for (const auto& thread_message_set : thread_message_sets) {
+//        message_set.insert(message_set.end(), thread_message_set.begin(), thread_message_set.end());
+//    }
+//}
+void message::parallel_generate_messages(std::vector<message>& message_set, size_t num_messages, std::vector<int>& available_ids, std::mutex& id_mutex) {
+    size_t messages_per_thread = std::max((int)ceil((double)num_messages / std::thread::hardware_concurrency()), (10));
+    size_t num_threads = std::min(std::thread::hardware_concurrency(), (unsigned int)(std::ceil((double)(num_messages) / messages_per_thread)));
     // 创建线程并生成消息
+    std::vector<std::vector<message>> thread_message_sets(num_threads);
     std::vector<std::thread> threads;
-    for (size_t i = 0; i < num_threads; ++i) {
-        threads.emplace_back([&]() {
+    for (size_t i = 0; i < num_threads; i++) {
+        threads.emplace_back([&, i]() { // 捕获 i 变量并复制到 lambda 表达式中
             // 在每个线程中生成消息
-            for (size_t j = 0; j < messages_per_thread; ++j) {
+            size_t thread_index = i; // 复制 i 到本地变量
+            for (size_t j = 0; j < messages_per_thread && (i * messages_per_thread + j) < num_messages; ++j) {
                 // 调用生成随机 message 的函数
-                message new_message = generate_random_message();
-                // 对共享资源 messages 进行加锁
-                std::lock_guard<std::mutex> lock(mutex);
-                // 将生成的 message 添加到 messages 中
-                message_set.push_back(new_message);
+                message new_message = generate_random_message(available_ids, id_mutex);
+                // 将生成的 message 添加到该线程的消息集合中
+                thread_message_sets[thread_index].push_back(new_message);
             }
             });
     }
+
 
     // 等待所有线程结束
     for (auto& thread : threads) {
         thread.join();
     }
+
+    // 将每个线程生成的消息合并到 message_set 中
+    for (auto& thread_message_set : thread_message_sets) {
+        for (auto& new_message : thread_message_set) {
+            message_set.emplace_back(std::move(new_message));
+        }
+    }
 }
+
+
 
 void message::print_messages(const std::vector<message>&message_set) {
     std::cout << "ID\tdatasize(\tperiod\tdeadline\tpriority\texec_time\tdata\n";
