@@ -209,19 +209,22 @@ bool feasibility_check(std::vector<canfd_frame>& frame_set, std::vector<int>& as
 }
 bool assign_priority(std::vector<canfd_frame>& frame_set) {
     std::vector<canfd_frame*> pendingSet_p;
-    std::vector<canfd_frame> pendingSet;
+    std::vector<canfd_frame> pendingSet;//写两个是因为懒得把之前写的函数的参数修改，其实只要pendingSet_p即可
+    std::vector<canfd_frame*> copyset;
     for (canfd_frame& frame : frame_set) {
         pendingSet_p.push_back(&frame);
         pendingSet.push_back(frame);
     }
     bool unassigned = true;
-    for (int pri = frame_set.size(); pri > 0; pri--) {
+
+    for (int pri = frame_set.size()-1; pri >= 0; pri--) {
         unassigned = true;
         for (auto it = pendingSet_p.begin(); it != pendingSet_p.end(); ++it) {
             auto it2 = pendingSet.begin() + (int)std::distance(pendingSet_p.begin(), it);
 
             if (it2 != pendingSet.end() && feasibility_check(pendingSet, std::distance(pendingSet.begin(), it2), pri)) {
-                (*it)->set_priority(pri);
+                copyset.push_back(*it);
+                /*(*it)->set_priority(pri);*/
                 DEBUG_MSG("任务", it2->get_id(), "  分配优先级", pri, "成功");
                 pendingSet_p.erase(it);
                 pendingSet.erase(it2);
@@ -240,8 +243,9 @@ bool assign_priority(std::vector<canfd_frame>& frame_set) {
 
     std::cout << "=============================== " << std::endl;
     std::cout << "优先级分配成功！！！ " << std::endl;
-    for (const canfd_frame& frame : frame_set) {
-        std::cout << "任务: " << frame.get_id() << "  优先级： " << frame.get_priority() << std::endl;
+    for (size_t pri = 0; pri < copyset.size(); pri++) {
+        copyset[pri]->set_priority(pri);
+        std::cout << "任务: " << copyset[pri]->get_id() << "  优先级： " << copyset[pri]->get_priority() << std::endl;
     }
     std::cout << "=============================== " << std::endl;
     return true;

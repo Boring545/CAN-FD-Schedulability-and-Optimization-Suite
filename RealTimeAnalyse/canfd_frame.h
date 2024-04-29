@@ -8,7 +8,7 @@ public:
     int data_size; // 数据尺寸
     
     int period;    // 周期
-    int offset;
+    //int offset;
     int priority;  //优先级
     int deadline;   //消息截止日期
     int exec_time;
