@@ -2,7 +2,175 @@
 
 int canfd_frame::max_data_size = 64;
 
+//文件结构：ID（int）   datasize(int)    period(int)  deadline(int)    priority（int）   exec_time（int）  data
+//文件开始为描述信息，如果读取到空行，此后每行表示一个message，数据间使用\t分割
+//data_size, period, deadline, priority, exec_time ≥0，priority ∈[0, 2047], data size 不应超过 64 bytes
+//deadline 应小于 period, exec_time 应小于 deadline
+std::vector<message> read_messages(const std::string& filename) {
+    std::ifstream file(filename);
+    std::vector<message> messages;
 
+    if (!file.is_open()) {
+        std::cerr << "Error: Unable to open file " << filename << std::endl;
+        return messages; // 返回空 vector
+    }
+
+    std::string line;
+    int line_number = 0;
+
+    // 跳过描述信息
+    while (std::getline(file, line) && !line.empty()) {
+        line_number++;
+    }
+
+    while (std::getline(file, line)) {
+        line_number++;
+
+        // 使用 stringstream 分割行内容
+        std::istringstream line_stream(line);
+        std::string id_str, data_size_str, period_str, deadline_str, priority_str, exec_time_str, data;
+
+        // 逐个读取以制表符为分隔符的字段
+        if (!std::getline(line_stream, id_str, '\t')) {
+            continue;
+        }
+        if (!std::getline(line_stream, data_size_str, '\t')) {
+            continue;
+        }
+        if (!std::getline(line_stream, period_str, '\t')) {
+            continue;
+        }
+        if (!std::getline(line_stream, deadline_str, '\t')) {
+            continue;
+        }
+        if (!std::getline(line_stream, priority_str, '\t')) {
+            continue;
+        }
+        if (!std::getline(line_stream, exec_time_str, '\t')) {
+            continue;
+        }
+        std::getline(line_stream, data, '\t');
+
+        // 将字符串转换为对应的整数值
+        int id = std::stoi(id_str);
+        int data_size = std::stoi(data_size_str);
+        int period = std::stoi(period_str);
+        int deadline = std::stoi(deadline_str);
+        int priority = std::stoi(priority_str);
+        int exec_time = std::stoi(exec_time_str);
+
+        // 输入合法性检查
+        if (data_size < 0 || period < 0 || deadline < 0 || priority < 0 || exec_time < 0 || data_size > 64 || priority > 2047) {
+            std::cerr << "Error: 不合法的输入 位于 行 " << line_number << "\n(提示：data_size, period, deadline, priority, exec_time 应非负, priority 应属于 [0 , 2047], data size 不应超过 64 bytes)" << std::endl;
+            continue; // 跳过当前行
+        }
+
+        if (deadline >= period || exec_time < deadline) {
+            std::cerr << "Error: 不合法的输入 位于 行 " << line_number << " (deadline 应小于 period, exec_time 应小于 deadline)" << std::endl;
+            continue; // 跳过当前行
+        }
+
+        // 创建 message 对象并添加到 messages 中
+        message m(id, data_size, period, deadline, priority, exec_time, data);
+        messages.push_back(m);
+    }
+
+    file.close(); // 关闭文件
+
+    return messages;
+}
+//将message_set写入filename内，append=true使得直接在上次的内容后追加写入
+void write_messages(const std::vector<message>& message_set, const std::string& filename, bool append = false) {
+    std::ofstream file;
+    if (append) {
+        file.open(filename, std::ios::app); // 追加模式
+    }
+    else {
+        file.open(filename); // 默认模式，不追加
+    }
+
+    if (!file.is_open()) {
+        std::cerr << "Error: Unable to open file " << filename << std::endl;
+        return;
+    }
+    // 写入消息描述信息，仅在非追加模式下写入
+    if (!append) {
+        file << "文件结构：ID（int）\tdatasize(int)\tperiod(int)\tdeadline(int)\tpriority（int)\texec_time（int）\tdata(字符串)"<<"===============================================================\n\n";
+    }
+
+    // 逐个写入每个 message
+    for (const auto& m : message_set) {
+        file << m.id << '\t' << m.data_size << '\t' << m.period << '\t' << m.deadline << '\t' << m.priority << '\t' << m.exec_time << '\t' << m.data << '\n';
+    }
+    file.close();
+}
+void write_messages(const std::vector<message>& message_set, int ecu_id, const std::string& directory, bool append = false) {
+    // 构造文件名
+    std::string filename = directory + "/ecu" + std::to_string(ecu_id) + "_message.txt";
+    // 调用原始函数
+    write_messages(message_set, ecu_id, directory, append);
+}
+
+//随机生成一个合规的messgae
+message generate_random_message() {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    // 生成随机的数据
+    std::uniform_int_distribution<int> id_dist(0, 999);
+    std::uniform_int_distribution<int> period_dist(1, 100);
+    std::uniform_int_distribution<int> deadline_dist(0, period_dist(gen) - 1);
+    std::uniform_int_distribution<int> priority_dist(0, 2047);
+    std::uniform_int_distribution<int> exec_time_dist(0, deadline_dist(gen));
+
+    int id = id_dist(gen);
+    int period = period_dist(gen);
+    int deadline = deadline_dist(gen);
+    int priority = priority_dist(gen);
+    int exec_time = exec_time_dist(gen);
+
+    // 生成随机的 data
+    std::uniform_int_distribution<int> data_size_dist(0, 64);
+    int data_size = data_size_dist(gen);
+    std::string data;
+    // 生成随机数据
+    for (int i = 0; i < data_size; ++i) {
+        char random_char = static_cast<char>(gen() % 26 + 'a'); // 生成随机字符
+        data.push_back(random_char);
+    }
+
+    return message(id, data_size, period, deadline, priority, exec_time, data);
+}
+// 并行生成随机 message 的函数
+void parallel_generate_messages(std::vector<message>& message_set, size_t num_messages) {
+    std::mutex mutex; // 互斥锁，用于保护共享资源 messages
+
+    // 获取系统支持的线程数量
+    size_t num_threads = std::thread::hardware_concurrency();
+    // 计算每个线程生成的消息数量
+    size_t messages_per_thread = num_messages / num_threads;
+
+    // 创建线程并生成消息
+    std::vector<std::thread> threads;
+    for (size_t i = 0; i < num_threads; ++i) {
+        threads.emplace_back([&]() {
+            // 在每个线程中生成消息
+            for (size_t j = 0; j < messages_per_thread; ++j) {
+                // 调用生成随机 message 的函数
+                message new_message = generate_random_message();
+                // 对共享资源 messages 进行加锁
+                std::lock_guard<std::mutex> lock(mutex);
+                // 将生成的 message 添加到 messages 中
+                message_set.push_back(new_message);
+            }
+            });
+    }
+
+    // 等待所有线程结束
+    for (auto& thread : threads) {
+        thread.join();
+    }
+}
 
 
 bool canfd_frame::create_canfd_frame(canfd_frame& _frame,int _id, CAN_Frame_Type _type, std::string _identifier, std::vector<message>* _message_list ) {
