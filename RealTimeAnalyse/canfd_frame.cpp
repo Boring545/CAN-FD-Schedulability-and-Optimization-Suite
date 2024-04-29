@@ -95,7 +95,7 @@ void message::write_messages(const std::vector<message>& message_set, const std:
     }
     // 写入消息描述信息，仅在非追加模式下写入
     if (!append) {
-        file << "文件结构：ID（int）\tdatasize(int)\tperiod(int)\tdeadline(int)\tpriority（int)\texec_time（int）\tdata(字符串)"<<"===============================================================\n\n";
+        file << "文件结构：ID（int）\tdatasize(int)\tperiod(int)\tdeadline(int)\tpriority（int)\texec_time（int）\tdata(字符串)\n"<<"===============================================================\n\n";
     }
 
     // 逐个写入每个 message
