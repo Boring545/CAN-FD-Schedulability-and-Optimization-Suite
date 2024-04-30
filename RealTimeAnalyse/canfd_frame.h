@@ -9,6 +9,7 @@
 #include <mutex>
 #include <random>
 #include <thread>
+#include <unordered_set>
 //如何输入message？
 //1.通过构造函数 2.通过文件写入good（这使得程序通过C++执行，而其他部分可以通过文件作为中介用JAVA编写）
 //文件结构：ID（int）   datasize(int)    period(int)  deadline(int)    priority（int）   exec_time（int）  data(数据长度在64byte内)   
@@ -37,9 +38,11 @@ public:
     
     static void write_messages(const std::vector<message>& message_set, int ecu_id, const std::string& directory, bool append = false);
     //随机生成一个合规的messgae
-    static message generate_random_message(std::vector<int>& available_ids, std::mutex& id_mutex);
+    /*static message generate_random_message(std::vector<int>& available_ids, std::mutex& id_mutex);*/
+    static message generate_random_message(std::unordered_set<int>& available_ids, std::mutex& id_mutex);
     // 并行生成随机 message 的函数,available_ids的每个元素代表一个可用使用的id
-    static void parallel_generate_messages(std::vector<message>& message_set, size_t num_messages, std::vector<int>& available_ids, std::mutex& id_mutex);
+    static void parallel_generate_messages(std::vector<message>& message_set, size_t num_messages, std::unordered_set<int>& available_ids, std::mutex& id_mutex);
+    
     static void print_messages(const std::vector<message>&message_set);
 };
 
@@ -76,8 +79,8 @@ public:
 
 
     static int max_data_size;   // 最大数据负载，默认为 64
+    std::vector<message*> message_p_list; // 所装载的消息集合
     std::vector<message>* message_list; // 所装载的消息集合
-    
 
     //创建canfd帧时，要么用于传递控制消息，要么用于包裹message来组成数据帧，控制消息估计会自动提供优先级，数据帧优先级由所传递的任务决定，故数据帧可不给优先级
     //创建控制帧

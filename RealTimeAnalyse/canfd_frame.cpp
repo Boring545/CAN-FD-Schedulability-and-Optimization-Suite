@@ -1,5 +1,6 @@
 #include "canfd_frame.h"
 
+
 int canfd_frame::max_data_size = 64;
 
 //文件结构：ID（int）   datasize(int)    period(int)  deadline(int)    priority（int）   exec_time（int）  data
@@ -116,25 +117,25 @@ std::vector<message> message::read_messages(int ecu_id, const std::string& direc
     std::string filename = directory + "/ecu" + std::to_string(ecu_id) + "_messages.txt";
     return read_messages(filename);
 }
-message message::generate_random_message(std::vector<int>& available_ids, std::mutex& id_mutex) {
+message message::generate_random_message(std::unordered_set<int>& available_ids, std::mutex& id_mutex) {
     std::random_device rd;
     std::mt19937 gen(rd());
 
     std::unique_lock<std::mutex> lock(id_mutex); // 对 id_mutex 进行加锁
 
     if (available_ids.empty()) {
-        return message(); // 如果可用id的数组为空，返回默认的 message 对象
+        return message(); // 如果可用id的集合为空，返回默认的 message 对象
     }
 
-    // 生成随机索引
-    std::uniform_int_distribution<int> index_dist(0, available_ids.size() - 1);
-    int index = index_dist(gen);
+    // 生成随机迭代器
+    auto it = available_ids.begin();
+    std::advance(it, std::uniform_int_distribution<int>(0, available_ids.size() - 1)(gen));
 
     // 获取随机选择的id
-    int id = available_ids[index];
+    int id = *it;
 
-    // 将已选择的id从可用id数组中移除
-    available_ids.erase(available_ids.begin() + index);
+    // 将已选择的id从可用id集合中移除
+    available_ids.erase(it);
 
     lock.unlock(); // 解锁
 
@@ -164,6 +165,7 @@ message message::generate_random_message(std::vector<int>& available_ids, std::m
     // 返回生成的 message 对象
     return message(id, data_size, period, deadline, priority, exec_time, data);
 }
+
 
 
 //void message::parallel_generate_messages(std::vector<message>& message_set, size_t num_messages) {
@@ -197,7 +199,7 @@ message message::generate_random_message(std::vector<int>& available_ids, std::m
 //        message_set.insert(message_set.end(), thread_message_set.begin(), thread_message_set.end());
 //    }
 //}
-void message::parallel_generate_messages(std::vector<message>& message_set, size_t num_messages, std::vector<int>& available_ids, std::mutex& id_mutex) {
+void message::parallel_generate_messages(std::vector<message>& message_set, size_t num_messages, std::unordered_set<int>& available_ids, std::mutex& id_mutex) {
     size_t messages_per_thread = std::max((int)ceil((double)num_messages / std::thread::hardware_concurrency()), (10));
     size_t num_threads = std::min(std::thread::hardware_concurrency(), (unsigned int)(std::ceil((double)(num_messages) / messages_per_thread)));
     // 创建线程并生成消息
