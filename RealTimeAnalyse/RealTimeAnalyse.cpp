@@ -1,5 +1,6 @@
 ﻿#include <iostream>
 #include"PriorityArrangement.h"
+#include "FramePacking.h"
 int main()
 {
 	std::vector<message> mset;
@@ -26,10 +27,11 @@ int main()
 		available_ids.insert(i);
 	}
 	std::mutex id_mutex;
-	message::parallel_generate_messages(message_set, id_size, available_ids, id_mutex);
-	message::write_messages(message_set,1, "D:/document/CODE/C++/RealTimeAnalyse/RealTimeAnalyse/input");
+	//message::parallel_generate_messages(message_set, id_size, available_ids, id_mutex);
+	//message::write_messages(message_set,1, "D:/document/CODE/C++/RealTimeAnalyse/RealTimeAnalyse/input");
 	std::vector<message> message_set2=message::read_messages(1, "D:/document/CODE/C++/RealTimeAnalyse/RealTimeAnalyse/input");
-	message::print_messages(message_set2);
+	/*message::print_messages(message_set2);*/
+	auto individuals = initial_population(message_set2, 10);
 	return 0;
 }
 

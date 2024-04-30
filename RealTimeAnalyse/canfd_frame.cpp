@@ -206,10 +206,10 @@ void message::parallel_generate_messages(std::vector<message>& message_set, size
     std::vector<std::vector<message>> thread_message_sets(num_threads);
     std::vector<std::thread> threads;
     for (size_t i = 0; i < num_threads; i++) {
-        threads.emplace_back([&, i]() { // 捕获 i 变量并复制到 lambda 表达式中
+        int thread_index = i;
+        threads.emplace_back([&, thread_index]() { // 捕获 i 变量并复制到 lambda 表达式中
             // 在每个线程中生成消息
-            size_t thread_index = i; // 复制 i 到本地变量
-            for (size_t j = 0; j < messages_per_thread && (i * messages_per_thread + j) < num_messages; ++j) {
+            for (size_t j = 0; j < messages_per_thread && (thread_index * messages_per_thread + j) < num_messages; ++j) {
                 // 调用生成随机 message 的函数
                 message new_message = generate_random_message(available_ids, id_mutex);
                 // 将生成的 message 添加到该线程的消息集合中
@@ -240,12 +240,12 @@ void message::print_messages(const std::vector<message>&message_set) {
         std::cout << message_set[i].id << '\t' << message_set[i].data_size << '\t' << message_set[i].period << '\t' << message_set[i].deadline << '\t' << message_set[i].priority << '\t' << message_set[i].exec_time << '\t' << message_set[i].data << '\n';
     }
 }
-bool canfd_frame::create_canfd_frame(canfd_frame& _frame,int _id, CAN_Frame_Type _type, std::string _identifier, std::vector<message>* _message_list ) {
-    if (_message_list == nullptr) {
+bool canfd_frame::create_canfd_frame(canfd_frame& _frame,int _id, CAN_Frame_Type _type, std::string _identifier, std::vector<message*> _message_p_list ) {
+    if (_message_p_list.empty()) {
         return false;
     }
     else {
-        if (_frame.add_messageset(*_message_list)) {
+        if (_frame.add_message_list(_message_p_list)) {
             _frame.type = _type;
             _frame.set_identifier(_identifier);
             _frame.id = _id;
@@ -257,12 +257,12 @@ bool canfd_frame::create_canfd_frame(canfd_frame& _frame,int _id, CAN_Frame_Type
     }
 
 }
-bool canfd_frame::create_canfd_frame(canfd_frame& _frame,int _id, CAN_Frame_Type _type, std::vector<message>* _message_list) {
-    if (_message_list == nullptr) {
+bool canfd_frame::create_canfd_frame(canfd_frame& _frame,int _id, CAN_Frame_Type _type, std::vector<message*> _message_p_list) {
+    if (_message_p_list.empty()) {
         return false;
     }
     else {
-        if (_frame.add_messageset(*_message_list,true)) {
+        if (_frame.add_message_list(_message_p_list,true)) {
             _frame.type = _type;
             _frame.id = _id;
             //这里的优先级就是消息的最大优先级
@@ -349,46 +349,60 @@ bool canfd_frame::add_message(message& m, bool priority_flag) {
     if (max_data_size - data_size < m.data_size) {
         return false;
     }
+
     else {
-        this->update_data_size(this->data_size += m.data_size);
-        (this->message_list)->push_back(m);
-        this->deadline = std::min(this->deadline, m.deadline);
-        this->exec_time += m.exec_time;
-        if(priority_flag){ this->set_priority(std::min(this->priority, m.priority)); }
-        if ((this->message_list)->empty()) {
-            this->period = m.period;
+        int temp_period = 0, min_deadline = 0;
+        if (this->message_p_list.empty() ){
+            temp_period = m.period;
+            min_deadline = m.deadline;
+            if (temp_period < min_deadline || m.deadline < canfd_utils().calc_wctt(canfd_frame::payload_size_trans(m.data_size)) || min_deadline < this->exec_time + m.exec_time) {
+                return false;
+            }
         }
         else {
-            this->period = my_algorithm::gcd(this->period, m.period);
+            temp_period = my_algorithm::gcd(this->period, m.period);
+            min_deadline = std::min(this->deadline, m.deadline);
+            if ((min_deadline != -1 && temp_period < min_deadline) || this->deadline < canfd_utils().calc_wctt(canfd_frame::payload_size_trans(m.data_size+this->data_size)) || min_deadline <= this->exec_time + m.exec_time) {
+                //TODO 执行时间exec_time是否需要纳入考虑？ 比如exec_time应该小于deadline
+                return false;
+            }
         }
+
+        this->period = temp_period;
+        this->deadline = min_deadline;
+
+        this->update_data_size(this->data_size += m.data_size);
+        (this->message_p_list).push_back(&m);
+        this->exec_time += m.exec_time;
+        if(priority_flag){ this->set_priority(std::min(this->priority, m.priority)); }
 
         return true;
     }
 }
 //向frame添加消息集合中的所有消息，同步更新data_size、payload_size，deadline、period
-bool canfd_frame::add_messageset(std::vector<message>& messageSet, bool priority_flag ) {
-    if (messageSet.empty()) return false;
-    int accumulate_size = 0, min_deadline = this->deadline, temp_period = messageSet[0].period;
+bool canfd_frame::add_message_list(std::vector<message*>& message_p_set, bool priority_flag ) {
+    if (message_p_set.empty()) return false;
+    int accumulate_size = 0, min_deadline = this->deadline, temp_period = message_p_set[0]->period;
     int min_pri = this->priority, accumulate_exec=0;
-    for (size_t i = 0; i < messageSet.size(); i++) {
-        accumulate_size += messageSet[i].data_size;
-        if (messageSet[i].deadline < min_deadline) {
-            min_deadline = messageSet[i].deadline;
+    for (size_t i = 0; i < message_p_set.size(); i++) {
+        accumulate_size += message_p_set[i]->data_size;
+        if (message_p_set[i]->deadline < min_deadline) {
+            min_deadline = message_p_set[i]->deadline;
         }
-        if (messageSet[i].priority < min_pri) {
-            min_pri = messageSet[i].priority;
+        if (message_p_set[i]->priority < min_pri) {
+            min_pri = message_p_set[i]->priority;
         }
-        temp_period = my_algorithm::gcd(temp_period, messageSet[i].period);
-        accumulate_exec += messageSet[i].exec_time;
+        temp_period = my_algorithm::gcd(temp_period, message_p_set[i]->period);
+        accumulate_exec += message_p_set[i]->exec_time;
     }
 
-    if (max_data_size - data_size < accumulate_size) {
+    if (max_data_size - data_size < accumulate_size || temp_period < min_deadline || this->deadline < canfd_utils().calc_wctt(canfd_frame::payload_size_trans(accumulate_size + this->data_size)) || min_deadline <= this->exec_time + accumulate_exec) {
         return false;
     }
     else {
         this->update_data_size(this->data_size + accumulate_size);
-        for (message& m : messageSet) {
-            this->message_list->push_back(m);
+        for (message* m : message_p_set) {
+            this->message_p_list.push_back(m);
         }
         //TODO 更新更多的可能信息
         this->deadline = min_deadline;
@@ -403,7 +417,7 @@ bool canfd_frame::add_messageset(std::vector<message>& messageSet, bool priority
     bool canfd_frame::merge(canfd_frame& frame,bool priority_flag) {
         if (this->type != frame.type) { return false; }
         //TODO 需要考虑offset怎么处理
-        if (this->add_messageset(*(frame.message_list), priority_flag)) {
+        if (this->add_message_list(frame.message_p_list, priority_flag)) {
             return true;
         }
         else {

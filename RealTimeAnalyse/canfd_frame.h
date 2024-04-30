@@ -79,13 +79,13 @@ public:
 
 
     static int max_data_size;   // 最大数据负载，默认为 64
-    std::vector<message*> message_p_list; // 所装载的消息集合
-    std::vector<message>* message_list; // 所装载的消息集合
+    std::vector<message*> message_p_list; // TODO 最好将message_list迁移到这上面
+    //std::vector<message>* message_list; // 所装载的消息集合
 
     //创建canfd帧时，要么用于传递控制消息，要么用于包裹message来组成数据帧，控制消息估计会自动提供优先级，数据帧优先级由所传递的任务决定，故数据帧可不给优先级
     //创建控制帧
-    bool create_canfd_frame(canfd_frame& _frame,int id ,CAN_Frame_Type _type, std::string _identifier, std::vector<message>* _message_list = nullptr);
-    bool create_canfd_frame(canfd_frame& _frame, int _id, CAN_Frame_Type _type, std::vector<message>* _message_list);
+    bool create_canfd_frame(canfd_frame& _frame, int _id, CAN_Frame_Type _type, std::string _identifier, std::vector<message*> _message_p_list);
+    bool create_canfd_frame(canfd_frame& _frame, int _id, CAN_Frame_Type _type, std::vector<message*> _message_p_list);
     //将二进制优先级换算为整数优先级
     static int priority_trans(std::string identifier);
     ////将整数优先级换算为二进制优先级
@@ -105,7 +105,7 @@ public:
     //向frame添加消息m，同步更新data_size、payload_size，deadline、period，如priority_flag=true，优先级将根据任务优先级自动更新
     bool add_message(message& m,bool priority_flag = false);
     //向frame添加消息集合中的所有消息，同步更新data_size、payload_size，deadline、period,如priority_flag=true，优先级将根据任务优先级自动更新
-    bool add_messageset(std::vector<message>& messageSet,bool priority_flag=false);
+    bool add_message_list(std::vector<message*>& message_p_set,bool priority_flag=false);
     //合并两个数据帧,, bool priority_flag=true 则自动更新优先级
     bool merge(canfd_frame& frame, bool priority_flag=false);
 
@@ -134,14 +134,17 @@ public:
 
     canfd_frame() {
         type = CAN_Frame_Type::NULL_FRAME;
-
-
+    }
+    canfd_frame(int _id) {
+        type = CAN_Frame_Type::NULL_FRAME;
+        this->id = _id;
     }
     ~canfd_frame() {
-        message_list->clear();
-        identifier.clear();
+        this->message_p_list.clear();
+        this->identifier.clear();
     }
     void clear() {
+        this->message_p_list.clear();
         this->type = CAN_Frame_Type::NULL_FRAME;
         data_size = 0;
         payload_size = 0;
@@ -155,3 +158,39 @@ public:
     }
 };
 
+class canfd_utils {
+private:
+    int data_rate = 1000000; // 数据段速度，默认值为 1 Mbps
+    int arbitration_rate = 1000000; // 仲裁段速度，默认值为 1 Mbps
+    double t_arb;   //单位为s
+    double t_data;
+public:
+    //初始化canfd系统基本信息
+    canfd_utils(int dataRate = 1000000, int arbRate = 1000000) {
+        this->data_rate = dataRate;
+        t_data = 1.0 / dataRate;
+        this->arbitration_rate = arbRate;
+        t_arb = 1.0 / arbRate;
+    }
+    //计算最坏情况下的传输时间
+    double calc_wctt(int paylaod_size) {
+        int p = paylaod_size;
+        double wctt = 32 * t_arb + (28 + 5 * ceil(p - 16 / 64.0) + 10.0 * p) * t_data;
+        return wctt;
+    }
+    //计算最好情况下的传输时间
+    double calc_bctt(const canfd_frame& frame) {
+        int p = frame.get_paylaod_size();
+        double bctt = 29 * t_arb + (27 + 5 * ceil(p - 16 / 64.0) + 8.0 * p) * t_data;
+        return bctt;
+    }
+    //计算带宽利用率
+    double calc_bandwidth_utilization(const std::vector<canfd_frame>&frameSet) {
+        double BWU = 0;
+        for (size_t i = 0; i < frameSet.size(); i++) {
+            BWU += ((double)calc_wctt(frameSet[i].get_paylaod_size()) / frameSet[i].get_period());
+        }
+        return BWU;
+    }
+    //TODO 计算数据帧能否按时完成，数据帧可调度性检测
+};
