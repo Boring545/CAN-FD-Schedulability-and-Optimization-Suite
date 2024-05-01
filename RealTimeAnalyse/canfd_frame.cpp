@@ -117,7 +117,7 @@ std::vector<message> message::read_messages(int ecu_id, const std::string& direc
     std::string filename = directory + "/ecu" + std::to_string(ecu_id) + "_messages.txt";
     return read_messages(filename);
 }
-message message::generate_random_message(std::unordered_set<int>& available_ids, std::mutex& id_mutex) {
+message message::generate_random_message(std::unordered_set<int>& available_ids, std::mutex& id_mutex,int period_base) {
     std::random_device rd;
     std::mt19937 gen(rd());
 
@@ -140,8 +140,8 @@ message message::generate_random_message(std::unordered_set<int>& available_ids,
     lock.unlock(); // 解锁
 
     // 生成随机的 period、deadline、priority、exec_time 和 data_size
-    std::uniform_int_distribution<int> period_dist(1, 100);
-    int period = period_dist(gen);
+    std::uniform_int_distribution<int> period_mul_dist(1,10);
+    int period = period_base*period_mul_dist(gen);
 
     std::uniform_int_distribution<int> deadline_dist(1, period);
     int deadline = deadline_dist(gen);
@@ -149,11 +149,23 @@ message message::generate_random_message(std::unordered_set<int>& available_ids,
     std::uniform_int_distribution<int> priority_dist(0, 2047);
     int priority = priority_dist(gen);
 
-    std::uniform_int_distribution<int> exec_time_dist(0, deadline);
+    std::uniform_int_distribution<int> exec_time_dist(1, std::max(1,(int)(deadline*0.25)));
     int exec_time = exec_time_dist(gen);
 
-    std::uniform_int_distribution<int> data_size_dist(0, 64);
-    int data_size = data_size_dist(gen);
+    double mean = 16.0;
+    double stddev = 10.0;
+    // 创建正态分布对象
+    std::normal_distribution<double> data_size_dist(mean, stddev);
+
+    // 生成正态分布的随机数
+    double data_size=0;
+    do {
+        data_size = (int)data_size_dist(gen);
+    } while (data_size < 0 || data_size > 64);
+
+
+    //std::uniform_int_distribution<int> data_size_dist(0, 64);
+    //int data_size = data_size_dist(gen);
 
     // 生成随机的 data
     std::string data;
@@ -200,7 +212,7 @@ message message::generate_random_message(std::unordered_set<int>& available_ids,
 //    }
 //}
 void message::parallel_generate_messages(std::vector<message>& message_set, size_t num_messages, std::unordered_set<int>& available_ids, std::mutex& id_mutex) {
-    size_t messages_per_thread = std::max((int)ceil((double)num_messages / std::thread::hardware_concurrency()), (10));
+    size_t messages_per_thread = std::max((int)ceil((double)num_messages / std::thread::hardware_concurrency()), (50));
     size_t num_threads = std::min(std::thread::hardware_concurrency(), (unsigned int)(std::ceil((double)(num_messages) / messages_per_thread)));
     // 创建线程并生成消息
     std::vector<std::vector<message>> thread_message_sets(num_threads);
@@ -211,7 +223,7 @@ void message::parallel_generate_messages(std::vector<message>& message_set, size
             // 在每个线程中生成消息
             for (size_t j = 0; j < messages_per_thread && (thread_index * messages_per_thread + j) < num_messages; ++j) {
                 // 调用生成随机 message 的函数
-                message new_message = generate_random_message(available_ids, id_mutex);
+                message new_message = generate_random_message(available_ids, id_mutex,10);
                 // 将生成的 message 添加到该线程的消息集合中
                 thread_message_sets[thread_index].push_back(new_message);
             }

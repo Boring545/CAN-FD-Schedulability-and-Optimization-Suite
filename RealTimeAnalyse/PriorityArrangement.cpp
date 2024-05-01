@@ -161,7 +161,7 @@ bool feasibility_check(std::vector<canfd_frame*>& frame_set, int taski, int pri)
 bool feasibility_check(std::vector<canfd_frame*>& frame_set, std::vector<int>& assign_table) {
     int t = 0, R = 0, K = 0;
     std::vector<int> lower, upper;
-    if (find_interval(frame_set, lower, upper)) { return false; }
+    if (!find_interval(frame_set, lower, upper)) { return false; }
     std::vector<betaset> beta, eta;
     int taski = 0;
 
@@ -182,7 +182,6 @@ bool feasibility_check(std::vector<canfd_frame*>& frame_set, std::vector<int>& a
             //优先级应在最后成功后统一分配
             DEBUG_MSG("任务", (*it2)->get_id(), "  分配优先级", pri, "成功");
             frame_set_copy.erase(it2);
-            break;
             //pendingSet.erase(it2);
         }
         else {
@@ -213,7 +212,7 @@ bool assign_priority(std::vector<canfd_frame*>& frame_set) {
             if (feasibility_check(frame_set_copy,i, pri)) {
                 auto it = frame_set_copy.begin() + i;
                 copyset.push_back(*it);
-                DEBUG_MSG("任务", frame_set_copy[i]->get_id(), "  分配优先级", pri, "成功");
+                DEBUG_MSG("任务", frame_set_copy[i]->get_id(), "  分配优先级", pri, "成功！！！！！！！！！");
                 frame_set_copy.erase(it);
                 unassigned = false;
                 break;
