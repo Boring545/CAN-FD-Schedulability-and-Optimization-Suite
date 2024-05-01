@@ -31,7 +31,7 @@ namespace my_algorithm {
     }
     //最小公倍数
     template<class T>
-    T lcm(T a, T b) {
+    unsigned long long lcm(T a, T b) {
         if (a <= 0 || b <= 0) {
             throw std::invalid_argument("Arguments must be positive numbers.");
         }
