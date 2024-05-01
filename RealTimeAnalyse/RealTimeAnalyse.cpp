@@ -25,7 +25,8 @@ void pri_test() {
 
 
 
-	int id_size = 10;
+	int id_size = 20;
+	int max_try = 10;
 	std::vector<message> message_set;
 	std::unordered_set<int> available_ids;
 	available_ids.reserve(id_size);
@@ -40,13 +41,15 @@ void pri_test() {
 	message::write_messages(message_set,1, "D:/document/CODE/C++/RealTimeAnalyse/RealTimeAnalyse/input");
 	std::vector<std::vector<canfd_frame*>> population;
 	std::vector<message> message_set2 = message::read_messages(1, "D:/document/CODE/C++/RealTimeAnalyse/RealTimeAnalyse/input");
-	auto individuals = initial_population(population,message_set2, 10);
+	auto individuals = initial_population(population,message_set2, max_try);
 	assign_offset(population[0]);
 	assign_priority(population[0]);
 
 
 
 }
+//TODO 1.修改初始打包算法，
+//应该在打包时避免将deadline相差太大，周期的最小公因数过小的消息打包在一个数据帧中
 
 int main()
 {

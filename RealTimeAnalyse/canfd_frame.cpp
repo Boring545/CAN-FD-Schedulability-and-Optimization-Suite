@@ -140,34 +140,53 @@ message message::generate_random_message(std::unordered_set<int>& available_ids,
     lock.unlock(); // 解锁
 
     // 生成随机的 period、deadline、priority、exec_time 和 data_size
+
+    //////////////////随机生成周期
     std::uniform_int_distribution<int> period_mul_dist(1,10);
     int period = period_base*period_mul_dist(gen);
 
-    std::uniform_int_distribution<int> deadline_dist(1, period);
-    int deadline = deadline_dist(gen);
+    //////////////随机生成截止日期
+    double mean = (double)period;
+    double stddev = (period) / 3.0; // 标准差取 period 的三分之一
+    // 创建正态分布对象
+    std::normal_distribution<double> deadline_dist(mean, stddev);
+    // 生成正态分布的随机数
+    double deadline_double;
+    do {
+        deadline_double = deadline_dist(gen);
+    } while (deadline_double < 1 || deadline_double > period); // 保证 deadline 在 [1, period] 范围内
+    int deadline = static_cast<int>(deadline_double);
 
+    /////////////随机生成优先级
     std::uniform_int_distribution<int> priority_dist(0, 2047);
     int priority = priority_dist(gen);
 
-    std::uniform_int_distribution<int> exec_time_dist(1, std::max(1,(int)(deadline*0.25)));
-    int exec_time = exec_time_dist(gen);
 
-    double mean = 16.0;
-    double stddev = 10.0;
+    ////////////////随机生成执行时间
+    mean = 1.0; // 希望趋近于1
+    stddev = 2; // 标准差设置为 0.5 或更小的值
     // 创建正态分布对象
-    std::normal_distribution<double> data_size_dist(mean, stddev);
+    std::normal_distribution<double> exec_time_dist(mean, stddev);
 
     // 生成正态分布的随机数
+    double exec_time_double;
+    do {
+        exec_time_double = exec_time_dist(gen);
+    } while (exec_time_double < 1 || exec_time_double > deadline * 0.25); // 保证 exec_time 在 [1, deadline*0.25] 范围内
+
+    // 将随机数取整作为 exec_time
+    int exec_time = std::max(1, (int)exec_time_double);
+
+    ////////////////////随机生成数据
+    mean = 16.0;
+    stddev = 10.0;
+    // 创建正态分布对象
+    std::normal_distribution<double> data_size_dist(mean, stddev);
     double data_size=0;
     do {
         data_size = (int)data_size_dist(gen);
     } while (data_size < 0 || data_size > 64);
 
-
-    //std::uniform_int_distribution<int> data_size_dist(0, 64);
-    //int data_size = data_size_dist(gen);
-
-    // 生成随机的 data
     std::string data;
     for (int i = 0; i < data_size; ++i) {
         char random_char = static_cast<char>(gen() % 26 + 'a');
