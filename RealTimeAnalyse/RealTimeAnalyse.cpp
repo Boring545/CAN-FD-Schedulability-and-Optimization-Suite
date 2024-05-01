@@ -25,7 +25,7 @@ void pri_test() {
 
 
 
-	int id_size = 20;
+	int id_size = 30;
 	int max_try = 10;
 	std::vector<message> message_set;
 	std::unordered_set<int> available_ids;

@@ -1,23 +1,33 @@
 文件结构：ID（int）	datasize(int)	period(int)	deadline(int)	priority（int)	exec_time（int）	data(字符串)
 ===============================================================
 
-3	2	70	69	1750	2	lu
-10	7	70	57	1474	1	ghsuhqx
-1	30	90	50	1542	1	epvxnnmgtjnitcjuaxaimkxtgmvjvh
-9	19	40	25	1180	1	iaaylubvoafbdabywss
-15	20	10	7	1504	1	wnvqsadepboikxhveucn
-0	37	50	40	922	1	eqhaftjnvajelkkbxoupyhhiarpyoomqpbtxy
-4	41	10	9	1707	1	hvpwmkutpdwiwomlxftdwlcfjpejaoetsbkgukbem
-8	11	80	65	529	1	gdticslzksl
-13	22	100	38	840	2	vnoxjhfohraufdqxmqviwr
-14	28	100	99	1076	4	ujcuoelbsdsovgygnamhletmajgo
-18	20	60	40	948	3	mfvanzikkvduiyeykgjk
-19	30	40	36	736	2	xmntrvnpuhcvywcjmhvckanktyjypa
-7	25	60	16	1388	1	jydswsbsigibaixzddorqguvo
-17	18	90	56	1163	4	ysjuwuyijxdirjlmba
-16	32	90	82	1689	1	ptbjcvahlvwwcbmycicyhipnogvixttw
-2	28	100	98	703	2	pyzhndmfcwprepnjbiynqydpfuxb
-6	16	50	38	1891	3	tasksduimpkvyanb
-11	23	20	18	842	1	fbrgepropratsjlyyyhcuyx
-12	22	40	21	839	1	pryumyqtptdqbxvccmltji
-5	22	80	79	948	1	xzlrzjoifipscioyxteiyg
+25	14	30	27	359	1	rwmfewmcammtel
+13	16	30	18	1780	1	ldxgeknsgdxcatqy
+22	5	20	4	446	1	xfdco
+29	23	20	11	585	1	rawogneqsnrbsdceoptvibc
+17	19	10	9	181	3	rwdbshqvubhygszijnb
+21	23	70	56	823	5	urlbfzdcwxbfgbfzzeydzvh
+3	0	90	41	899	1	
+7	23	70	60	180	1	uyhwnwifzkzyrlasooubvih
+14	14	80	58	941	1	dtjjzpdbrrtthf
+6	0	50	22	1904	3	
+12	3	10	6	1339	1	vaw
+8	13	90	68	1006	1	oomytpovnqhyi
+26	28	100	56	1723	4	dngrvzwyyrcopsufjiwczwckxnam
+23	20	60	53	1476	1	lubilukrqpzohqjkmjbc
+18	29	60	54	1906	1	wwlhhfffteraqcatmltrvvcgvduuw
+27	23	40	30	1840	1	ktevfhnuckubnpphzqmjacs
+5	17	80	52	551	1	fxmatlibdjmiiewxa
+2	17	40	33	320	1	riseiqspxnrvudscp
+9	13	100	42	1858	1	lrdoajblmkqcn
+1	24	20	13	1618	1	srtzearvlxqctvscepylwgfe
+20	33	40	31	18	1	cughxkfcjkmjdsaqhdepudtkdsusvgmbb
+16	14	80	76	1240	2	doxmqbaqlrkdfb
+4	19	100	72	232	1	xbxyhclbtuifsyzkjmb
+19	28	80	75	49	1	cmjsjsoyyaieeaymckrxnodjptbw
+11	31	60	58	1404	4	gguvrmkbnuxudidjihbbehcclzvydqe
+15	34	80	65	1840	1	hfpuioovcdupsueyethdtxijrnuyrtppyr
+28	20	70	43	1564	2	fmiihsymkjddyjathcwm
+0	24	90	35	1550	1	pbpqtzjbrhjqalgwixqnopmq
+24	8	20	12	157	1	bhqijnae
+10	13	70	51	189	2	boifzqpzntivy

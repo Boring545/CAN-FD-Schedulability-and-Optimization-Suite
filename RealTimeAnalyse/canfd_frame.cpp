@@ -172,7 +172,7 @@ message message::generate_random_message(std::unordered_set<int>& available_ids,
     double exec_time_double;
     do {
         exec_time_double = exec_time_dist(gen);
-    } while (exec_time_double < 1 || exec_time_double > deadline * 0.25); // 保证 exec_time 在 [1, deadline*0.25] 范围内
+    } while (exec_time_double > deadline); // 保证 exec_time 在 deadline范围内
 
     // 将随机数取整作为 exec_time
     int exec_time = std::max(1, (int)exec_time_double);
