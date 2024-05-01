@@ -2,6 +2,8 @@
 #include"PriorityArrangement.h"
 #include "FramePacking.h"
 #include"offset_arrangement.h"
+
+
 void paper_test() {
 	//canfd_frame* f1 = new canfd_frame(4, 1, 1, 10, 0);
 //canfd_frame* f2 = new canfd_frame(5, 1, 2, 10, 1);
@@ -55,6 +57,7 @@ int main()
 {
 
 	pri_test();
+	/*bb();*/
 	return 0;
 }
 

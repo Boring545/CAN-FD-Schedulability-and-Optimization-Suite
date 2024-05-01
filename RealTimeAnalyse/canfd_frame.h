@@ -193,10 +193,10 @@ public:
         return bctt;
     }
     //计算带宽利用率
-    double calc_bandwidth_utilization(const std::vector<canfd_frame>&frameSet) {
+    double calc_bandwidth_utilization(const std::vector<canfd_frame*>&frameSet) {
         double BWU = 0;
         for (size_t i = 0; i < frameSet.size(); i++) {
-            BWU += ((double)calc_wctt(frameSet[i].get_paylaod_size()) / frameSet[i].get_period());
+            BWU += ((double)calc_wctt(frameSet[i]->get_paylaod_size()) / frameSet[i]->get_period());
         }
         return BWU;
     }

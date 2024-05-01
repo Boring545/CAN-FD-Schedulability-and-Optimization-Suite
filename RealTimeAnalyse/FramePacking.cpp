@@ -6,7 +6,7 @@
 //每装载一个message，都要检测加入message后的frame，满足WCTT≤Deadline
 //如何生成n种满足条件的拆分方案呢？
 
-std::vector<int> generate_individual(const std::unordered_set<message*>& message_p_set, std::vector<canfd_frame*>& frame_list, size_t max_try) {
+std::vector<int> generate_individual(const std::unordered_set< message*>& message_p_set, std::vector<canfd_frame*>& frame_list, size_t max_try) {
 
     // 创建一个个体，即一个个体中的每个 vector 存储一个 canfd_frame
     std::vector<int> individual(message_p_set.size(), -1);
@@ -46,7 +46,7 @@ std::vector<int> generate_individual(const std::unordered_set<message*>& message
     }
     return individual;
 }
-std::vector<std::vector<int>> initial_population(std::vector<std::vector<canfd_frame*>>& population,std::vector<message>& message_set, int num, size_t max_try) {
+std::vector<std::vector<int>> initial_population(std::vector<std::vector<canfd_frame*>>& population, std::vector<message>& message_set, int num, size_t max_try) {
     // 创建一个 unordered_set 用于跟踪可用消息指针
     std::unordered_set<message*> message_p_set;
     message_p_set.reserve(message_set.size());
@@ -73,9 +73,8 @@ std::vector<std::vector<int>> initial_population(std::vector<std::vector<canfd_f
         int thread_index = i;
         threads.emplace_back([&]() {
             for (size_t j = 0; j < individuals_per_thread && (thread_index * individuals_per_thread + j) < num; ++j) {
-                std::unordered_set<message*> message_p_set_copy = message_p_set;
                 // 调用生成随机 message 的函数
-                auto indiv = generate_individual(message_p_set_copy, temp, max_try);
+                auto indiv = generate_individual(message_p_set, temp, max_try);
                 canfd_list_results[thread_index].push_back(temp);
                 // 将生成的 message 添加到该线程的消息集合中
                 indiv_results[thread_index].push_back(indiv);
