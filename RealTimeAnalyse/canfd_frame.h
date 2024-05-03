@@ -10,20 +10,20 @@
 #include <random>
 #include <thread>
 #include <unordered_set>
+#include<chrono>
 //如何输入message？
 //1.通过构造函数 2.通过文件写入good（这使得程序通过C++执行，而其他部分可以通过文件作为中介用JAVA编写）
 //文件结构：ID（int）   datasize(int)    period(int)  deadline(int)    priority（int）   exec_time（int）  data(数据长度在64byte内)   
 //文件开始为描述信息，如果读取到空行，此后每行表示一个message，
 class message {
 public:
-    int data_size; // 数据尺寸
+    int data_size; // 数据尺寸,单位为BYTE//TODO 以后再改成位
     
-    int period;    // 周期
-    //int offset;
-    int priority;  //优先级
-    int deadline;   //消息截止日期
-    int exec_time;
-    int id;
+    int period;    // 周期  单位可以是ms、us、ns
+    int priority;  //优先级 【考虑删除的属性】
+    int deadline;   //消息截止日期 单位同周期，单位可以是ms、us、ns
+    int exec_time;  //【考虑删除的属性】
+    int id;     
     std::string data; //用于装载传输的信息，默认不填写，大小可能有限制
     message(int _id, int _data_size, int _period, int _deadline, int _priority, int _exec_time, std::string _data = "")
     :id(_id),data_size(_data_size),period(_period),deadline(_deadline),priority(_priority),exec_time(_exec_time){
@@ -63,14 +63,15 @@ private:
     int period=-1;     
     std::string identifier; // 优先级标识,一共11位二进制数，表示1~2048，需要将其换算为10进制存在priority中
     int priority=-1;
-    int exec_time=0;   //数据帧在系统内的执行时间，是所有装载任务的执行时间和
+    double exec_time=0;   //数据帧在系统内的传输时间
     int id=-1;
     CAN_Frame_Type type;    // 数据帧类型
 
-    //同步更新data_size、payload_size
+    //同步更新data_size、payload_size,exec_time
     bool update_data_size(int size) {
         this->data_size = size;
         this->payload_size = payload_size_trans(size);
+        this->exec_time = canfd_utils().calc_wctt(this->payload_size);
         return true;
     }
 public:
@@ -165,12 +166,17 @@ public:
         offset = 0;
     }
 };
-
+enum class TimeUnit {
+    Nanoseconds=1000000000,
+    Microseconds=1000000,
+    Milliseconds=1000,
+    Seconds=1
+};
 class canfd_utils {
 private:
-    int data_rate = 1000000; // 数据段速度，默认值为 1 Mbps
-    int arbitration_rate = 1000000; // 仲裁段速度，默认值为 1 Mbps
-    double t_arb;   //单位为s
+    int data_rate = 1000000; // 数据段速度，单位默认为bps 即1s传输data_rate个b(位) ，默认设置为1Mbps
+    int arbitration_rate = 1000000; // 仲裁段速度，单位默认为Mbps 即1s传输data_rate个b(位，默认设置为1Mbps
+    double t_arb;   //单位为s，传输一个bit所用秒数
     double t_data;
 public:
     //初始化canfd系统基本信息
@@ -181,16 +187,16 @@ public:
         t_arb = 1.0 / arbRate;
     }
     //计算最坏情况下的传输时间
-    double calc_wctt(int paylaod_size) {
-        int p = paylaod_size;
+    double calc_wctt(int paylaod_size, TimeUnit time_unit= TimeUnit::Microseconds) {
+        int p = paylaod_size,mutiple= (int)time_unit;
         double wctt = 32 * t_arb + (28 + 5 * ceil(p - 16 / 64.0) + 10.0 * p) * t_data;
-        return wctt;
+        return mutiple*wctt;
     }
     //计算最好情况下的传输时间
-    double calc_bctt(const canfd_frame& frame) {
-        int p = frame.get_paylaod_size();
+    double calc_bctt(int paylaod_size, TimeUnit time_unit = TimeUnit::Microseconds) {
+        int p = paylaod_size, mutiple = (int)time_unit;
         double bctt = 29 * t_arb + (27 + 5 * ceil(p - 16 / 64.0) + 8.0 * p) * t_data;
-        return bctt;
+        return mutiple*bctt;
     }
     //计算带宽利用率
     double calc_bandwidth_utilization(const std::vector<canfd_frame*>&frameSet) {
