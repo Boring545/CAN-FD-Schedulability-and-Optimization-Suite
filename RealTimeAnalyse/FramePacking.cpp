@@ -46,7 +46,7 @@ std::vector<int> generate_individual(const std::unordered_set< message*>& messag
     }
     return individual;
 }
-std::vector<std::vector<int>> initial_population(std::vector<std::vector<canfd_frame*>>& population, std::vector<message>& message_set, int num, size_t max_try) {
+std::vector<std::vector<int>> initial_population(std::vector<std::vector<canfd_frame*>>& population, std::vector<message>& message_set, int population_size,int frame_count,  size_t max_try) {
     // 创建一个 unordered_set 用于跟踪可用消息指针
     std::unordered_set<message*> message_p_set;
     message_p_set.reserve(message_set.size());
@@ -55,8 +55,8 @@ std::vector<std::vector<int>> initial_population(std::vector<std::vector<canfd_f
     }
 
     //一个线程尽量完成10个生成任务(一个任务对应一个个体)
-    size_t individuals_per_thread = std::max((int)ceil((double)num / std::thread::hardware_concurrency()), (10));
-    size_t num_threads = std::min(std::thread::hardware_concurrency(), (unsigned int)(std::ceil((double)(num) / individuals_per_thread)));
+    size_t individuals_per_thread = std::max((int)ceil((double)population_size / std::thread::hardware_concurrency()), (10));
+    size_t num_threads = std::min(std::thread::hardware_concurrency(), (unsigned int)(std::ceil((double)(population_size) / individuals_per_thread)));
 
     // 创建 vector 存储生成的种群
     std::vector< std::vector<std::vector<int>>> indiv_results;
@@ -67,17 +67,76 @@ std::vector<std::vector<int>> initial_population(std::vector<std::vector<canfd_f
 
     std::vector<std::vector<int>> individuals;
     std::vector<std::thread> threads;
-    std::vector<canfd_frame*> temp;
+
 
     for (size_t i = 0; i < num_threads; i++) {
-        int thread_index = i;
+        const int thread_index = i;
         threads.emplace_back([&]() {
-            for (size_t j = 0; j < individuals_per_thread && (thread_index * individuals_per_thread + j) < num; ++j) {
-                // 调用生成随机 message 的函数
+            std::vector<canfd_frame*> temp;
+            for (size_t j = 0; j < individuals_per_thread && (thread_index * individuals_per_thread + j) < population_size;) {
+                // 调用生成随机 message 的函数,用temp接收打包好的数据帧集合，message_p_set是传入的消息集合，indiv为数组形式的数据帧、message对应关系
+                auto indiv = generate_individual(message_p_set, temp, max_try);
+                if (temp.size() == frame_count) {
+                    canfd_list_results[thread_index].push_back(temp);
+                    // 将生成的 message 添加到该线程的消息集合中
+                    indiv_results[thread_index].push_back(indiv);
+                    j++;
+                }
+            }
+            });
+    }
+    // 等待所有线程结束
+    for (auto& thread : threads) {
+        thread.join();
+    }
+
+    // 将每个线程生成的消息合并到 message_set 中
+    for (auto& thread_result : indiv_results) {
+        for (auto& indiv : thread_result) {
+            individuals.emplace_back(std::move(indiv));
+        }
+    }
+    for (auto& thread_result : canfd_list_results) {
+        for (auto& indiv : thread_result) {
+            population.push_back(std::move(indiv));
+        }
+    }
+    return individuals;
+}
+std::vector<std::vector<int>> initial_population(std::vector<std::vector<canfd_frame*>>& population, std::vector<message>& message_set, int population_size, size_t max_try) {
+    // 创建一个 unordered_set 用于跟踪可用消息指针
+    std::unordered_set<message*> message_p_set;
+    message_p_set.reserve(message_set.size());
+    for (message& m : message_set) {
+        message_p_set.insert(&m);
+    }
+
+    //一个线程尽量完成10个生成任务(一个任务对应一个个体)
+    size_t individuals_per_thread = std::max((int)ceil((double)population_size / std::thread::hardware_concurrency()), (10));
+    size_t num_threads = std::min(std::thread::hardware_concurrency(), (unsigned int)(std::ceil((double)(population_size) / individuals_per_thread)));
+
+    // 创建 vector 存储生成的种群
+    std::vector< std::vector<std::vector<int>>> indiv_results;
+    std::vector< std::vector<std::vector<canfd_frame*>>> canfd_list_results;
+
+    indiv_results.resize(num_threads);
+    canfd_list_results.resize(num_threads);
+
+    std::vector<std::vector<int>> individuals;
+    std::vector<std::thread> threads;
+    
+
+    for (size_t i = 0; i < num_threads; i++) {
+        const int thread_index = i;
+        threads.emplace_back([&]() {
+            std::vector<canfd_frame*> temp;
+            for (size_t j = 0; j < individuals_per_thread && (thread_index * individuals_per_thread + j) < population_size;) {
+                // 调用生成随机 message 的函数,用temp接收打包好的数据帧集合，message_p_set是传入的消息集合，indiv为数组形式的数据帧、message对应关系
                 auto indiv = generate_individual(message_p_set, temp, max_try);
                 canfd_list_results[thread_index].push_back(temp);
                 // 将生成的 message 添加到该线程的消息集合中
                 indiv_results[thread_index].push_back(indiv);
+                j++;
             }
             });
     }

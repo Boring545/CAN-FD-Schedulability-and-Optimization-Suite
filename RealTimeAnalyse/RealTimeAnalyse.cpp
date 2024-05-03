@@ -27,8 +27,9 @@ void pri_test() {
 
 
 
-	int id_size = 30;
-	int max_try = 10;
+	int id_size = 20;
+	int population_size = 20;
+	int frame_num = 10;
 	std::vector<message> message_set;
 	std::unordered_set<int> available_ids;
 	available_ids.reserve(id_size);
@@ -43,9 +44,13 @@ void pri_test() {
 	message::write_messages(message_set,1, "D:/document/CODE/C++/RealTimeAnalyse/RealTimeAnalyse/input");
 	std::vector<std::vector<canfd_frame*>> population;
 	std::vector<message> message_set2 = message::read_messages(1, "D:/document/CODE/C++/RealTimeAnalyse/RealTimeAnalyse/input");
-	auto individuals = initial_population(population,message_set2, max_try);
-	assign_offset(population[0]);
-	assign_priority(population[0]);
+	auto individuals = initial_population(population,message_set2, population_size,frame_num,3);
+	
+	for (auto& x : population) {
+		assign_offset(x);
+		assign_priority(x);
+	}
+	
 
 
 

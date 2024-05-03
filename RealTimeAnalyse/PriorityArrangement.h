@@ -35,10 +35,12 @@ int calc_create_interf(const canfd_frame& frame, const int t, const int R, const
 //bool feasibility_check(std::vector<message>& messageSet);
 //frame_set为待分配优先级任务集合，向其中标号为taski的任务分配最低的优先级，pri没啥用
 bool feasibility_check(std::vector<canfd_frame*>& frame_set, int taski, int pri);
+bool feasibility_check(std::vector<canfd_frame*>& frame_set, int taski, int pri, const std::vector<int>& lower, const std::vector<int>& upper);
 //按照assign_table的顺序，依次从第到高尝试分配优先级【frame_set为待分配优先级任务集合】
 bool feasibility_check(std::vector<canfd_frame*>& frame_set, std::vector<int>& assign_table);
 //自动向frame_set中的frame分配优先级【frame_set为待分配优先级任务集合】
 bool assign_priority(std::vector<canfd_frame*>& frame_set);
+
 class PriorityArrangement {
     
 };

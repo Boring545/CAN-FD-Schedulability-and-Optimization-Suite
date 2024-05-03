@@ -178,8 +178,8 @@ message message::generate_random_message(std::unordered_set<int>& available_ids,
     int exec_time = std::max(1, (int)exec_time_double);
 
     ////////////////////随机生成数据
-    mean = 16.0;
-    stddev = 10.0;
+    mean = 8;
+    stddev = 3;
     // 创建正态分布对象
     std::normal_distribution<double> data_size_dist(mean, stddev);
     double data_size=0;

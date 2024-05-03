@@ -130,6 +130,36 @@ int calc_create_interf(const canfd_frame& frame, const int t, const int R, const
     return K;
 }
 //待分配优先级帧集合frame_set中，如果要给编号为taski的帧分配最低的优先级（pri），能否可行
+bool feasibility_check(std::vector<canfd_frame*>& frame_set, int taski, int pri, const std::vector<int>& lower, const std::vector<int>& upper) {
+    //TODO 可能存在一个问题，即每次循环都是从未分配优先级的任务集合中选取一个任务去试探分配优先级，这使得任务集合越来越小。
+    //     beta，eta等后续计算是否只用考虑未分配集合呢？解决方法是后续计算使用一个新的，不断更新（删除已分配优先级任务）的任务集合
+   //      
+    int t = 0, R = 0, K = 0;
+    std::vector<betaset> beta, eta;
+
+    while (t < upper[taski]) {
+        create_beta(frame_set, *frame_set[taski], lower[taski], beta);
+        R = calc_remain_interf(*frame_set[taski], lower[taski], beta);
+        create_eta(frame_set, *frame_set[taski], lower[taski], R, eta);
+        K = std::max(0, calc_create_interf(*frame_set[taski], lower[taski], R, eta));
+        
+        if (frame_set[taski]->get_exec_time() + R + K > frame_set[taski]->get_deadline()) {
+            //任务i永远不能可行，这使得任务集也不可行
+            beta.clear();
+            eta.clear();
+            DEBUG_MSG("exec:", frame_set[taski]->get_exec_time(), "+ R:", R, " + K:", K, " > D:", frame_set[taski]->get_deadline());
+            DEBUG_MSG("任务", frame_set[taski]->get_id(), "  分配优先级", pri, "失败");
+            return false;
+        }
+        beta.clear();
+        eta.clear();
+        t = t + frame_set[taski]->get_period();
+    }
+
+
+    return true;
+}
+//待分配优先级帧集合frame_set中，如果要给编号为taski的帧分配最低的优先级（pri），能否可行
 bool feasibility_check(std::vector<canfd_frame*>& frame_set, int taski, int pri) {
     //TODO 可能存在一个问题，即每次循环都是从未分配优先级的任务集合中选取一个任务去试探分配优先级，这使得任务集合越来越小。
     //     beta，eta等后续计算是否只用考虑未分配集合呢？解决方法是后续计算使用一个新的，不断更新（删除已分配优先级任务）的任务集合
@@ -139,21 +169,24 @@ bool feasibility_check(std::vector<canfd_frame*>& frame_set, int taski, int pri)
     find_interval(frame_set, lower, upper);
     std::vector<betaset> beta, eta;
 
-    create_beta(frame_set, *frame_set[taski], lower[taski], beta);
-    R = calc_remain_interf(*frame_set[taski], lower[taski], beta);
-    create_eta(frame_set, *frame_set[taski], lower[taski], R, eta);
-    K = std::max(0,calc_create_interf(*frame_set[taski], lower[taski], R, eta));
-    DEBUG_MSG("exec:", frame_set[taski]->get_exec_time(),"+ R:", R, " + K:", K," > ", frame_set[taski]->get_deadline());
-    if (frame_set[taski]->get_exec_time() + R + K > frame_set[taski]->get_deadline()) {
-        //任务i永远不能可行，这使得任务集也不可行
+    while (t < upper[taski]) {
+        create_beta(frame_set, *frame_set[taski], lower[taski], beta);
+        R = calc_remain_interf(*frame_set[taski], lower[taski], beta);
+        create_eta(frame_set, *frame_set[taski], lower[taski], R, eta);
+        K = std::max(0, calc_create_interf(*frame_set[taski], lower[taski], R, eta));
+        DEBUG_MSG("exec:", frame_set[taski]->get_exec_time(), "+ R:", R, " + K:", K, " > ", frame_set[taski]->get_deadline());
+        if (frame_set[taski]->get_exec_time() + R + K > frame_set[taski]->get_deadline()) {
+            //任务i永远不能可行，这使得任务集也不可行
+            beta.clear();
+            eta.clear();
+            DEBUG_MSG("任务", frame_set[taski]->get_id(), "  分配优先级", pri, "失败");
+            return false;
+        }
         beta.clear();
         eta.clear();
-        DEBUG_MSG("任务", frame_set[taski]->get_id(), "  分配优先级", pri, "失败");
-        //std::cout << "任务" << taski << "  分配优先级" << pri << "失败" << std::endl;
-        return false;
+        t = t + frame_set[taski]->get_period();
     }
-    beta.clear();
-    eta.clear();
+
 
     return true;
 }
@@ -203,17 +236,20 @@ bool feasibility_check(std::vector<canfd_frame*>& frame_set, std::vector<int>& a
 }
 bool assign_priority(std::vector<canfd_frame*>& frame_set) {
     std::vector<canfd_frame*> frame_set_copy(frame_set.begin(), frame_set.end());
-    std::vector<canfd_frame*> copyset;
+    //std::vector<canfd_frame*> copyset;
+    std::vector<int> lower, upper;
 
     bool unassigned = true;
     for (int pri = frame_set.size()-1; pri >= 0; pri--) {
         unassigned = true;
+        find_interval(frame_set_copy, lower, upper);
         for (size_t i = 0; i < frame_set_copy.size(); i++) {
-            if (feasibility_check(frame_set_copy,i, pri)) {
+            if (feasibility_check(frame_set_copy,i, pri,lower,upper)) {
                 auto it = frame_set_copy.begin() + i;
-                copyset.push_back(*it);
+                (*it)->set_priority(pri);
+                //copyset.push_back(*it);
                 DEBUG_MSG("任务", frame_set_copy[i]->get_id(), "  分配优先级", pri, "成功！！！！！！！！！");
-                frame_set_copy.erase(it);
+                frame_set_copy.erase(it);  //从未分配集合中，删除分配成功的frmae，然后尝试分配下一个优先级
                 unassigned = false;
                 break;
             }
@@ -225,14 +261,14 @@ bool assign_priority(std::vector<canfd_frame*>& frame_set) {
             std::cout << "=============================== " << std::endl;
             return false;
         }
-
+        lower.clear();
+        upper.clear();
     }
 
     std::cout << "=============================== " << std::endl;
     std::cout << "优先级分配成功！！！ " << std::endl;
-    for (size_t pri = 0; pri < copyset.size(); pri++) {
-        copyset[pri]->set_priority(pri);
-        std::cout << "任务: " << copyset[pri]->get_id() << "  优先级： " << copyset[pri]->get_priority() << std::endl;
+    for (size_t i = 0; i < frame_set.size(); i++) {
+        std::cout << "任务: " << frame_set[i]->get_id() << "  优先级： " << frame_set[i]->get_priority() << std::endl;
     }
     std::cout << "=============================== " << std::endl;
     return true;
