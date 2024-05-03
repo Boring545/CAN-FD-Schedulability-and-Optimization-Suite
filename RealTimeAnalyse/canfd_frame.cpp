@@ -237,7 +237,7 @@ void message::parallel_generate_messages(std::vector<message>& message_set, size
     std::vector<std::vector<message>> thread_message_sets(num_threads);
     std::vector<std::thread> threads;
     for (size_t i = 0; i < num_threads; i++) {
-        int thread_index = i;
+        const int thread_index = i;
         threads.emplace_back([&, thread_index]() { // 捕获 i 变量并复制到 lambda 表达式中
             // 在每个线程中生成消息
             for (size_t j = 0; j < messages_per_thread && (thread_index * messages_per_thread + j) < num_messages; ++j) {

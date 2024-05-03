@@ -71,7 +71,7 @@ std::vector<std::vector<int>> initial_population(std::vector<std::vector<canfd_f
 
     for (size_t i = 0; i < num_threads; i++) {
         const int thread_index = i;
-        threads.emplace_back([&]() {
+        threads.emplace_back([&, thread_index]() {
             std::vector<canfd_frame*> temp;
             for (size_t j = 0; j < individuals_per_thread && (thread_index * individuals_per_thread + j) < population_size;) {
                 // 调用生成随机 message 的函数,用temp接收打包好的数据帧集合，message_p_set是传入的消息集合，indiv为数组形式的数据帧、message对应关系
