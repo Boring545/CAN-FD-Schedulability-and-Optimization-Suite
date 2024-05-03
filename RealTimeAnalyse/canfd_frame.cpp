@@ -50,7 +50,7 @@ std::vector<message> message::read_messages(const std::string& filename) {
         if (!std::getline(line_stream, exec_time_str, '\t')) {
             continue;
         }
-        std::getline(line_stream, data, '\t');
+        std::getline(line_stream, data);
 
         // 将字符串转换为对应的整数值
         int id = std::stoi(id_str);
@@ -382,29 +382,31 @@ bool canfd_frame::add_message(message& m, bool priority_flag) {
     }
 
     else {
+        double wctt = 0;
         int temp_period = 0, min_deadline = 0;
         if (this->message_p_list.empty() ){
             temp_period = m.period;
             min_deadline = m.deadline;
-            if (temp_period < min_deadline || m.deadline < canfd_utils().calc_wctt(canfd_frame::payload_size_trans(m.data_size)) || min_deadline < this->exec_time + m.exec_time) {
+            wctt = canfd_utils().calc_wctt(canfd_frame::payload_size_trans(m.data_size));
+            if (temp_period < min_deadline || min_deadline < wctt ) {
                 return false;
             }
         }
         else {
             temp_period = my_algorithm::gcd(this->period, m.period);
             min_deadline = std::min(this->deadline, m.deadline);
-            if ((min_deadline != -1 && temp_period < min_deadline) || this->deadline < canfd_utils().calc_wctt(canfd_frame::payload_size_trans(m.data_size+this->data_size)) || min_deadline <= this->exec_time + m.exec_time) {
+            wctt = canfd_utils().calc_wctt(canfd_frame::payload_size_trans(m.data_size + this->data_size));
+            if ((min_deadline != -1 && temp_period < min_deadline) || min_deadline <= wctt) {
                 //TODO 执行时间exec_time是否需要纳入考虑？ 比如exec_time应该小于deadline
                 return false;
             }
         }
 
-        this->period = temp_period;
+        this->set_period(temp_period);
         this->deadline = min_deadline;
 
         this->update_data_size(this->data_size += m.data_size);
         (this->message_p_list).push_back(&m);
-        this->exec_time += m.exec_time;
         if(priority_flag){ this->set_priority(std::min(this->priority, m.priority)); }
 
         return true;

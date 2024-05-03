@@ -25,7 +25,8 @@ std::vector<int> generate_individual(const std::unordered_set< message*>& messag
         // 创建一个 canfd_frame 并添加可行元素，最多可以添加 max_try 个
         canfd_frame* frame=new canfd_frame(i);
         bool added = false;
-        for (size_t try_count = 0; try_count < max_try || added == false; ++try_count) {
+        //try_count用于累计
+        for (size_t try_count = 0; (try_count < max_try || added == false)&& try_count< message_p_set_copy.size(); ++try_count) {
             std::uniform_int_distribution<int> index_dist(0, message_p_set_copy.size() - 1);
             // 从 message_p_set 中随机选择一个可用消息指针
             auto it = message_p_set_copy.begin();
@@ -36,13 +37,19 @@ std::vector<int> generate_individual(const std::unordered_set< message*>& messag
                 individual[selected_message->id] = frame->get_id();//这里默认messageID从0开始，frame也是
                 added = true;
                 message_p_set_copy.erase(selected_message);
-                if (message_p_set_copy.empty()) break;
+                if (message_p_set_copy.empty()) 
+                    break;
             }
             
         }
+        if (added == false) {
+            delete frame;
+        }
+        else {
+            //// 将生成的 canfd_frame 添加到个体中
+            frame_list.emplace_back(frame);
+        }
 
-        //// 将生成的 canfd_frame 添加到个体中
-        frame_list.emplace_back(frame);
     }
     return individual;
 }

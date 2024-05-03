@@ -24,8 +24,16 @@ public:
 	}
 	//计算fitness的同时，也尝试分配优先级
 	double calc_fitness(std::vector<canfd_frame*> frame_list) {
-		return 1.0 / (assign_priority(frame_list) + canfd_utils().calc_bandwidth_utilization(frame_list));
+		return 1.0 / (assign_priority(frame_list) +calc_bandwidth_utilization(frame_list));
 	}
+	//计算带宽利用率
+double calc_bandwidth_utilization(const std::vector<canfd_frame*>& frameSet) {
+    double BWU = 0;
+    for (size_t i = 0; i < frameSet.size(); i++) {
+        BWU += ((double)canfd_setting.calc_wctt(frameSet[i]->get_paylaod_size()) / frameSet[i]->get_period());
+    }
+    return BWU;
+}
 	std::vector<canfd_frame> message_pack() {
 		std::vector<std::vector<canfd_frame*>> population;   //存储种群
 		//这里生成的种群中的个体不一定都可调度
