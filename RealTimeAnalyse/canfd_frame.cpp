@@ -412,6 +412,8 @@ bool canfd_frame::add_message(message& m, bool priority_flag) {
         return true;
     }
 }
+
+//TODO 需要修改
 //向frame添加消息集合中的所有消息，同步更新data_size、payload_size，deadline、period
 bool canfd_frame::add_message_list(std::vector<message*>& message_p_set, bool priority_flag ) {
     if (message_p_set.empty()) return false;

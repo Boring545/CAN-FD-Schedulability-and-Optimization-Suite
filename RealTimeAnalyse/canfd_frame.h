@@ -125,7 +125,7 @@ public:
     int get_deadline() const {
         return this->deadline;
     }
-    int get_exec_time() const {
+    double get_exec_time() const {
         return this->exec_time;
     }
     int get_id() const{
@@ -163,7 +163,7 @@ public:
         period = -1;
         identifier.clear();
         priority = -1;
-        exec_time = 0;
+        exec_time = 0.0;
         id = -1;
         offset = 0;
     }

@@ -151,6 +151,7 @@ bool feasibility_check(std::vector<canfd_frame*>& frame_set, int taski, int pri,
             DEBUG_MSG("任务", frame_set[taski]->get_id(), "  分配优先级", pri, "失败");
             return false;
         }
+        DEBUG_MSG("exec:", frame_set[taski]->get_exec_time(), "+ R:", R, " + K:", K, " <= D:", frame_set[taski]->get_deadline());
         beta.clear();
         eta.clear();
         t = t + frame_set[taski]->get_period();

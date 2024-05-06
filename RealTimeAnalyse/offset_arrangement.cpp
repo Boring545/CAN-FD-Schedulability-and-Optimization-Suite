@@ -20,45 +20,66 @@ bool  assign_offset(std::vector<canfd_frame*>& frame_set) {
 		[](const canfd_frame* a, const canfd_frame* b) {
 			return a->get_period() < b->get_period();
 		});
-	int g = calc_time_granularity(frame_set);
-	std::vector<int> released(frame_set_copy[frame_set_copy.size() - 1]->get_period() / g, 0);
-	int index = 0, max_interval = 0, left = 0, right = 0, temp = 0, max_left = 0, max_right = 0;
+	int g = calc_time_granularity(frame_set); //计算时间粒度g
+	std::vector<int> released(frame_set_copy[frame_set_copy.size() - 1]->get_period() / g, 0); //记录每个帧的release时间
+	
+	int temp_interval = 0,max_interval = 0;//最大的最小负载间隔
+	int left = 0, right = 0, max_left = 0, max_right = 0; //负载间隔左右区间
+	int min_load = frame_set_copy.size();//间隔内最小负载
 	
 	//按顺序对frame_set_copy中的frame依次分配offset
 	for (size_t i = 0; i < frame_set_copy.size(); i++) {
-		index = (0 * frame_set_copy[i]->get_period() + frame_set_copy[i]->offset) / g;
-		max_interval = 0, max_left = 0, max_right = 0;
-		//
-		for (int k = 0; index < (int)released.size(); ) {
-			//TODO 双向搜索，记录最大区间
-			left = index;
-			right = index;
-			temp = 0;
-			while (released[right] == 0 && frame_set_copy[i]->get_period() > temp) {
-				if (right == released.size() - 1) { right = -1; }
-				right++;
-				temp++;
+		temp_interval=max_interval = 0;
+		max_left = max_right = -1, left = right = -1;
+		
+		int Ti= frame_set_copy[i]->get_period() / g;
+		min_load = *(std::min_element(released.begin(), released.end()));
+		
+		for (int j = 0; j < Ti; ++j) {
+			if (released[j] == min_load&& temp_interval< Ti) {
+				if (left == -1) {
+					left = j;
+				}
+				right = j;
+				temp_interval++;
 			}
-			while (released[left] == 0 && frame_set_copy[i]->get_period() > temp) {
-				if (left == 0) { left = released.size(); }
-				left--;
-				temp++;
+			else {
+				left = right = -1;
+				temp_interval = 0;
 			}
-
-			if (frame_set_copy[i]->get_period() == temp) temp = frame_set_copy[i]->get_period() - 1;
-			if (max_interval < temp) {
+			//考虑循环数组的情况
+			if (right == Ti - 1 && released[0] == min_load) {
+				for (int m = 0; m < Ti; ++m) {
+					if (released[m] == min_load && temp_interval < Ti) {
+						right = m;
+						temp_interval++;
+					}
+					else {
+						break;
+					}
+				}
+			}
+			//重新确定最大空区间
+			if (max_interval < temp_interval) {
 				max_left = left;
 				max_right = right;
-				max_interval = temp;
+				max_interval = temp_interval;
 			}
-			released[index] += 1;
+		}
+		//offset位于最大空区间中点
+		int new_offset = g * ((max_left  + max_interval / 2) % Ti);
+		frame_set_copy[i]->offset = new_offset;
 
+		int index = (0 * frame_set_copy[i]->get_period() + frame_set_copy[i]->offset) / g;//index点为该任务的release时刻，此时将其初始化为第一个点，故0*
+		int k = 0;
+		//标记当前数据帧所有的release位置
+		while (index < (int)released.size()) {
+			released[index] += 1;
 			k++;
 			index = (k * frame_set_copy[i]->get_period() + frame_set_copy[i]->offset) / g;
 		}
 
-		int new_offset = (max_left + 1 + max_interval / 2) % released.size();
-		frame_set_copy[i]->offset = new_offset;
+
 	}
 	return true;
 }
