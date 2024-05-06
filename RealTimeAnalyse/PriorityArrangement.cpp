@@ -31,22 +31,27 @@ bool critical_check(const std::vector<canfd_frame>& frame_set, int& first_instan
 }
 bool find_interval(const std::vector<canfd_frame*>& frame_set, std::vector<int>& lower_bound, std::vector<int>& upper_bound) {
     if (frame_set.empty()) return false;
-    std::vector<int> omax(frame_set.size());
-    std::vector<unsigned long long>temp_p(frame_set.size());
-    omax[0] = frame_set[0]->offset; //o_i为 [0,i]任务的最大offset
-    temp_p[0] = frame_set[0]->get_period(); //temp_pi为[0,i]任务的最小公倍数
-
-    for (size_t j = 1; j < frame_set.size(); j++) {
-        omax[j] = std::max(omax[j - 1], frame_set[j]->offset);
-        temp_p[j] = my_algorithm::lcm(temp_p[j - 1], (unsigned long long)frame_set[j]->get_period());
+    std::vector<int> omax(frame_set.size(),0); //omax为frame_set中，除了自己index对应的frame外最大的offset
+    unsigned long long temp_p= frame_set[0]->get_period(); //temp_p为frame_set中所有周期的最小公倍数
+    for (size_t j = 0; j < frame_set.size(); j++) {
+        for (size_t i = 0; i < frame_set.size(); i++) {
+            if (i == j) {
+                continue;
+            }
+            else {
+                omax[j] = std::max(omax[j], frame_set[i]->offset);
+            }
+        }
+        temp_p = my_algorithm::lcm(temp_p, (unsigned long long)frame_set[j]->get_period());
     }
+
     lower_bound.resize(frame_set.size());
     upper_bound.resize(frame_set.size());
-    lower_bound[0] = 0; upper_bound[0] = temp_p[0];
-    for (size_t i = 1; i < frame_set.size(); i++) {
-        int quotient = ceil(static_cast<double>(omax[i - 1]) / frame_set[i]->get_period());
-        lower_bound[i] = static_cast<int>(quotient * frame_set[i]->get_period());
-        upper_bound[i] = lower_bound[i] + temp_p[i];
+    //lower_bound[0] = 0; upper_bound[0] = temp_p[0];
+    for (size_t i = 0; i < frame_set.size(); i++) {
+        int quotient = ceil((double)(omax[i]) / frame_set[i]->get_period());
+        lower_bound[i] = (int)(quotient * frame_set[i]->get_period());
+        upper_bound[i] = lower_bound[i] + temp_p;
     }
     return true;
 }
@@ -94,8 +99,8 @@ bool  create_eta(const std::vector<canfd_frame*>& frame_set, const canfd_frame& 
     return true;
 }
 
-int calc_remain_interf(const canfd_frame& frame, int t, std::vector<betaset>& beta) {
-    int R = 0;
+double calc_remain_interf(const canfd_frame& frame, int t, std::vector<betaset>& beta) {
+    double R = 0;
     int time = t - frame.get_period() + frame.get_deadline();
     time = 0;
     for (betaset b : beta) {
@@ -106,9 +111,10 @@ int calc_remain_interf(const canfd_frame& frame, int t, std::vector<betaset>& be
             R = 0;
             time = b.tr;
         }
-        int temp = b.tr - time;
+        //int temp = b.tr - time;
         R = R + b.C;
     }
+    //积累的任务在R+time时候才能彻底完成， R + time - t表示在当前考虑的任务release后，还需等待之前的任务多久
     R = R + time - t;
     if (R < 0) {
         R = 0;
@@ -116,15 +122,15 @@ int calc_remain_interf(const canfd_frame& frame, int t, std::vector<betaset>& be
     return R;
 }
 
-int calc_create_interf(const canfd_frame& frame, const int t, const int R, const std::vector<betaset>& eta) {
+double calc_create_interf(const canfd_frame& frame, const int t, const int R, const std::vector<betaset>& eta) {
     int next_free = R + t;
-    int K = 0;
-    int total_created = R;
+    double K = 0;
+    double total_created = R;
     for (betaset e : eta) {
         total_created += e.C;
         if (next_free < e.tr) { next_free = e.tr; }
-        K = K + std::min(t + frame.get_deadline() - next_free, e.C);
-        next_free = std::min(t + frame.get_deadline(), next_free + e.C);
+        K = K + std::min(t + (double)frame.get_deadline() - next_free, e.C);
+        next_free = std::min(t + (double)frame.get_deadline(), next_free + e.C);
     }
 
     return K;
@@ -141,7 +147,7 @@ bool feasibility_check(std::vector<canfd_frame*>& frame_set, int taski, int pri,
         create_beta(frame_set, *frame_set[taski], lower[taski], beta);
         R = calc_remain_interf(*frame_set[taski], lower[taski], beta);
         create_eta(frame_set, *frame_set[taski], lower[taski], R, eta);
-        K = std::max(0, calc_create_interf(*frame_set[taski], lower[taski], R, eta));
+        K = std::max(0.0, calc_create_interf(*frame_set[taski], lower[taski], R, eta));
         
         if (frame_set[taski]->get_exec_time() + R + K > frame_set[taski]->get_deadline()) {
             //任务i永远不能可行，这使得任务集也不可行
@@ -174,7 +180,7 @@ bool feasibility_check(std::vector<canfd_frame*>& frame_set, int taski, int pri)
         create_beta(frame_set, *frame_set[taski], lower[taski], beta);
         R = calc_remain_interf(*frame_set[taski], lower[taski], beta);
         create_eta(frame_set, *frame_set[taski], lower[taski], R, eta);
-        K = std::max(0, calc_create_interf(*frame_set[taski], lower[taski], R, eta));
+        K = std::max(0.0, calc_create_interf(*frame_set[taski], lower[taski], R, eta));
         DEBUG_MSG("exec:", frame_set[taski]->get_exec_time(), "+ R:", R, " + K:", K, " > ", frame_set[taski]->get_deadline());
         if (frame_set[taski]->get_exec_time() + R + K > frame_set[taski]->get_deadline()) {
             //任务i永远不能可行，这使得任务集也不可行
