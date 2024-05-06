@@ -33,7 +33,7 @@ bool  assign_offset(std::vector<canfd_frame*>& frame_set) {
 		max_left = max_right = -1, left = right = -1;
 		
 		int Ti= frame_set_copy[i]->get_period() / g;
-		min_load = *(std::min_element(released.begin(), released.end()));
+		min_load = *(std::min_element(released.begin(), released.begin()+Ti));
 		
 		for (int j = 0; j < Ti; ++j) {
 			if (released[j] == min_load&& temp_interval< Ti) {
