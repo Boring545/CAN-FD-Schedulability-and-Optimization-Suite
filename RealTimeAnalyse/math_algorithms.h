@@ -4,7 +4,7 @@ namespace my_algorithm {
     //最大公因数
     template<class T>
     T gcd(T a, T b) {
-        if (a < 0 || b < 0) {
+        if (a <= 0 || b <= 0) {
             throw std::invalid_argument("Arguments must be positive numbers.");
         }
         if (a == 1 || b == 1) 
@@ -38,6 +38,21 @@ namespace my_algorithm {
             throw std::invalid_argument("Arguments must be positive numbers.");
         }
         return (a * b) / gcd(a, b);
+    }
+    //归一化
+    template<typename T>
+    T normalizeValue(const T& value, const T& min_val, const T& max_val) {
+        // 如果最大值和最小值相等，则返回原始值
+        if (min_val == max_val) {
+            std::cerr << "Cannot normalize: min and max are equal!" << std::endl;
+            return value;
+        }
+
+        // 计算归一化因子
+        T range = max_val - min_val;
+
+        // 归一化单个值
+        return (value - min_val) / range;
     }
 }
 

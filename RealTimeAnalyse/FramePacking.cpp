@@ -6,6 +6,7 @@
 //每装载一个message，都要检测加入message后的frame，满足WCTT≤Deadline
 //如何生成n种满足条件的拆分方案呢？
 
+//有内存泄露风险
 std::vector<int> generate_individual(const std::unordered_set< message*>& message_p_set, std::vector<canfd_frame*>& frame_list, size_t max_try) {
 
     // 创建一个个体，即一个个体中的每个 vector 存储一个 canfd_frame
