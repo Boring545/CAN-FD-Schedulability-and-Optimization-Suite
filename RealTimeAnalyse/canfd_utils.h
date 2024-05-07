@@ -19,7 +19,7 @@ public:
         this->arbitration_rate = arbRate;
         t_arb = 1.0 / arbRate;
     }
-    //计算最坏情况下的传输时间
+    //计算最坏情况下的传输时间 [0.05999,1.019999],因此有必要使得周期底数大于2
     double calc_wctt(int paylaod_size, TimeUnit time_unit = TimeUnit::Milliseconds) {
         int p = paylaod_size;
         double wctt = 32 * t_arb + (28 + 5 * ceil(p - 16 / 64.0) + 10.0 * p) * t_data;

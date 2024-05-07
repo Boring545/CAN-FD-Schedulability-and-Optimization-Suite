@@ -4,17 +4,19 @@ namespace my_algorithm {
     //最大公因数
     template<class T>
     T gcd(T a, T b) {
-        if (a <= 0 || b <= 0) {
+        if (a < 0 || b < 0) {
             throw std::invalid_argument("Arguments must be positive numbers.");
         }
-        if (a == 1 || b == 1) return 1;
+        if (a == 1 || b == 1) 
+            return 1;
         while (b != 0) {
             T temp = b;
-            b = a % b;
+            b = std::fmod(a,b);
             a = temp;
         }
         return a;
     }
+
     //扩展欧几里得算法
     template<class T>
     T extended_gcd(T a, T b, int& x, int& y) {

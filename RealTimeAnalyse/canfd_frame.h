@@ -40,7 +40,7 @@ public:
     static void write_messages(const std::vector<message>& message_set, int ecu_id, const std::string& directory, bool append = false);
     //随机生成一个合规的messgae
     /*static message generate_random_message(std::vector<int>& available_ids, std::mutex& id_mutex);*/
-    static message generate_random_message(std::unordered_set<int>& available_ids, std::mutex& id_mutex, int period_base);
+    static message generate_random_message(std::unordered_set<int>& available_ids, std::mutex& id_mutex, int period_base=2);
     // 并行生成随机 message 的函数,available_ids的每个元素代表一个可用使用的id
     static void parallel_generate_messages(std::vector<message>& message_set, size_t num_messages, std::unordered_set<int>& available_ids, std::mutex& id_mutex);
     

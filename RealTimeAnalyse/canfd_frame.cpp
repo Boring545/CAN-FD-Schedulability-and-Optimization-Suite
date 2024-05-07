@@ -142,12 +142,12 @@ message message::generate_random_message(std::unordered_set<int>& available_ids,
     // 生成随机的 period、deadline、priority、exec_time 和 data_size
 
     //////////////////随机生成周期
-    std::uniform_int_distribution<int> period_mul_dist(1,10);
+    std::uniform_int_distribution<int> period_mul_dist(1,10); 
     int period = period_base*period_mul_dist(gen);
 
     //////////////随机生成截止日期
     double mean = (double)period;
-    double stddev = (period) / 3.0; // 标准差取 period 的三分之一
+    double stddev = 3.0; // 标准差
     // 创建正态分布对象
     std::normal_distribution<double> deadline_dist(mean, stddev);
     // 生成正态分布的随机数
@@ -157,12 +157,12 @@ message message::generate_random_message(std::unordered_set<int>& available_ids,
     } while (deadline_double < 1 || deadline_double > period); // 保证 deadline 在 [1, period] 范围内
     int deadline = static_cast<int>(deadline_double);
 
-    /////////////随机生成优先级
+    /////////////随机生成优先级【待删除】
     std::uniform_int_distribution<int> priority_dist(0, 2047);
     int priority = priority_dist(gen);
 
 
-    ////////////////随机生成执行时间
+    ////////////////随机生成执行时【待删除】
     mean = 1.0; // 希望趋近于1
     stddev = 2; // 标准差设置为 0.5 或更小的值
     // 创建正态分布对象
@@ -242,7 +242,7 @@ void message::parallel_generate_messages(std::vector<message>& message_set, size
             // 在每个线程中生成消息
             for (size_t j = 0; j < messages_per_thread && (thread_index * messages_per_thread + j) < num_messages; ++j) {
                 // 调用生成随机 message 的函数
-                message new_message = generate_random_message(available_ids, id_mutex,10);
+                message new_message = generate_random_message(available_ids, id_mutex);
                 // 将生成的 message 添加到该线程的消息集合中
                 thread_message_sets[thread_index].push_back(new_message);
             }

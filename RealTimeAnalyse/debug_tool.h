@@ -6,7 +6,7 @@ inline void debug_print(T first, Args... args) {
     std::cout << first ; // 打印第一个参数
     debug_print(args...); // 递归调用打印剩余参数
 }
-#define  DEBUG_OUTPUT
+//#define  DEBUG_OUTPUT
 #ifdef DEBUG_OUTPUT
 #define DEBUG_MSG(...) std::cout << "[DEBUG] "; debug_print(__VA_ARGS__);std::cout<<std::endl;
 #else
