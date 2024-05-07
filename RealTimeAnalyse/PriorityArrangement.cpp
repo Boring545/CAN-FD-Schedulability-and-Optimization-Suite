@@ -56,10 +56,8 @@ bool find_interval(const std::vector<canfd_frame*>& frame_set, std::vector<int>&
     return true;
 }
 bool create_beta(const std::vector<canfd_frame*>& frame_set, const canfd_frame& frame, int lower_bound, std::vector<betaset>& beta) {
-    int c = 0, tr = 0;
-    int upper = 0, lower = 0;
-    upper = lower_bound;
-    lower = upper - frame.get_period() + frame.get_deadline();
+    int upper = lower_bound;
+    int lower = upper - frame.get_period() + frame.get_deadline();
     /*if (lower >= upper) return false;*/
     //默认deadline<period
 
@@ -79,10 +77,8 @@ bool create_beta(const std::vector<canfd_frame*>& frame_set, const canfd_frame& 
 
 
 bool  create_eta(const std::vector<canfd_frame*>& frame_set, const canfd_frame& frame, int t, int R, std::vector<betaset>& eta) {
-    int c = 0, tr = 0;
-    int upper = 0, lower = 0;
-    lower = R + t;
-    upper = lower + frame.get_deadline();
+    int lower = R + t;
+    int upper = lower + frame.get_deadline();
     for (size_t i = 0; i < frame_set.size(); i++) {
         if (frame_set[i] == &frame) continue;
         int offset = offset_trans(frame_set[i]->offset, frame.offset, frame_set[i]->get_period());
@@ -140,7 +136,8 @@ bool feasibility_check(std::vector<canfd_frame*>& frame_set, int taski, int pri,
     //TODO 可能存在一个问题，即每次循环都是从未分配优先级的任务集合中选取一个任务去试探分配优先级，这使得任务集合越来越小。
     //     beta，eta等后续计算是否只用考虑未分配集合呢？解决方法是后续计算使用一个新的，不断更新（删除已分配优先级任务）的任务集合
    //      
-    int t = 0, R = 0, K = 0;
+    int t = 0;
+    double R = 0, K = 0;
     std::vector<betaset> beta, eta;
 
     while (t < upper[taski]) {
@@ -243,24 +240,42 @@ bool feasibility_check(std::vector<canfd_frame*>& frame_set, std::vector<int>& a
 }
 bool assign_priority(std::vector<canfd_frame*>& frame_set) {
     std::vector<canfd_frame*> frame_set_copy(frame_set.begin(), frame_set.end());
-    //std::vector<canfd_frame*> copyset;
     std::vector<int> lower, upper;
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+   
+
 
     bool unassigned = true;
     for (int pri = frame_set.size()-1; pri >= 0; pri--) {
         unassigned = true;
         find_interval(frame_set_copy, lower, upper);
+        //填充可选任务集合
         for (size_t i = 0; i < frame_set_copy.size(); i++) {
-            if (feasibility_check(frame_set_copy,i, pri,lower,upper)) {
-                auto it = frame_set_copy.begin() + i;
+            std::uniform_int_distribution<size_t> index_dist(0, frame_set_copy.size() - 1);
+            size_t random_index = index_dist(gen);
+            if (feasibility_check(frame_set_copy, random_index, pri, lower, upper)) {
+                auto it = frame_set_copy.begin() + random_index;
                 (*it)->set_priority(pri);
-                //copyset.push_back(*it);
-                DEBUG_MSG("任务", frame_set_copy[i]->get_id(), "  分配优先级", pri, "成功！！！！！！！！！");
+                DEBUG_MSG("任务", frame_set_copy[random_index]->get_id(), "  分配优先级", pri, "成功！！！！！！！！！");
                 frame_set_copy.erase(it);  //从未分配集合中，删除分配成功的frmae，然后尝试分配下一个优先级
                 unassigned = false;
                 break;
             }
         }
+        //for (size_t i = 0; i < frame_set_copy.size(); i++) {
+        //    if (feasibility_check(frame_set_copy,i, pri,lower,upper)) {
+        //        auto it = frame_set_copy.begin() + i;
+        //        (*it)->set_priority(pri);
+        //        //copyset.push_back(*it);
+        //        DEBUG_MSG("任务", frame_set_copy[i]->get_id(), "  分配优先级", pri, "成功！！！！！！！！！");
+        //        frame_set_copy.erase(it);  //从未分配集合中，删除分配成功的frmae，然后尝试分配下一个优先级
+        //        unassigned = false;
+        //        break;
+        //    }
+
+        //}
         if (unassigned) {
            
             std::cout << "=============================== " << std::endl;
