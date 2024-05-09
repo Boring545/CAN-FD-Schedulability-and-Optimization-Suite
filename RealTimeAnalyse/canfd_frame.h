@@ -81,9 +81,8 @@ public:
     
 
 
-    static int max_data_size;   // 最大数据负载，默认为 64
+    static constexpr int max_data_size=64;   // 最大数据负载，默认为 64
     std::vector<message*> message_p_list; // TODO 最好将message_list迁移到这上面
-    //std::vector<message>* message_list; // 所装载的消息集合
 
     //创建canfd帧时，要么用于传递控制消息，要么用于包裹message来组成数据帧，控制消息估计会自动提供优先级，数据帧优先级由所传递的任务决定，故数据帧可不给优先级
     //创建控制帧

@@ -5,7 +5,53 @@
 //使用first fit decrease方案进行打包，要求装载时不超过frame承载能力，
 //每装载一个message，都要检测加入message后的frame，满足WCTT≤Deadline
 //如何生成n种满足条件的拆分方案呢？
-
+//std::vector<int> generate_individual(const std::unordered_set< message*>& message_p_set, std::vector<canfd_frame*>& frame_list, size_t max_try) {
+//
+//    // 创建一个个体，即一个个体中的每个 vector 存储一个 canfd_frame
+//    std::vector<int> individual(message_p_set.size(), -1);
+//    frame_list.clear();
+//    frame_list.reserve(message_p_set.size());
+//
+//    std::random_device rd;
+//    std::mt19937 gen(rd());
+//
+//    // 创建一个副本用于随机选择消息
+//    std::unordered_set<message*> message_p_set_copy(message_p_set.begin(), message_p_set.end());
+//
+//
+//    // 生成种群中的一个个体
+//    for (size_t i = 0; !message_p_set_copy.empty(); ++i) {
+//        // 创建一个 canfd_frame 并添加可行元素，最多可以添加 max_try 个
+//        canfd_frame* frame = new canfd_frame(i);
+//        bool added = false;
+//        //try_count用于累计
+//        for (size_t try_count = 0; (try_count < max_try || added == false) && try_count < message_p_set_copy.size(); ++try_count) {
+//            std::uniform_int_distribution<int> index_dist(0, message_p_set_copy.size() - 1);
+//            // 从 message_p_set 中随机选择一个可用消息指针
+//            auto it = message_p_set_copy.begin();
+//            std::advance(it, index_dist(gen));
+//            message* selected_message = *it;
+//
+//            if (frame->add_message(*selected_message)) {
+//                individual[selected_message->id] = frame->get_id();//这里默认messageID从0开始，frame也是
+//                added = true;
+//                message_p_set_copy.erase(selected_message);
+//                if (message_p_set_copy.empty())
+//                    break;
+//            }
+//
+//        }
+//        if (added == false) {
+//            delete frame;
+//        }
+//        else {
+//            //// 将生成的 canfd_frame 添加到个体中
+//            frame_list.emplace_back(frame);
+//        }
+//
+//    }
+//    return individual;
+//}
 //有内存泄露风险
 std::vector<int> generate_individual(const std::unordered_set< message*>& message_p_set, std::vector<canfd_frame*>& frame_list, size_t max_try) {
 
@@ -80,7 +126,7 @@ std::vector<std::vector<int>> initial_population(std::vector<std::vector<canfd_f
     for (size_t i = 0; i < num_threads; i++) {
         const int thread_index = i;
         threads.emplace_back([&, thread_index]() {
-            std::vector<canfd_frame*> temp;
+            std::vector<canfd_frame*> temp;//暂存一个frame集合，其打包了所有的message
             for (size_t j = 0; j < individuals_per_thread && (thread_index * individuals_per_thread + j) < population_size;) {
                 // 调用生成随机 message 的函数,用temp接收打包好的数据帧集合，message_p_set是传入的消息集合，indiv为数组形式的数据帧、message对应关系
                 auto indiv = generate_individual(message_p_set, temp, max_try);

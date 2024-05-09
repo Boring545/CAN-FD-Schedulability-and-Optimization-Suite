@@ -1,7 +1,6 @@
 #include "canfd_frame.h"
 
 
-int canfd_frame::max_data_size = 64;
 
 //文件结构：ID（int）   datasize(int)    period(int)  deadline(int)    priority（int）   exec_time（int）  data
 //文件开始为描述信息，如果读取到空行，此后每行表示一个message，数据间使用\t分割

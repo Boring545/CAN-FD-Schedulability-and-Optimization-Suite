@@ -11,67 +11,214 @@ std::vector<int> generate_individual(const std::unordered_set< message*>& messag
 //随机生成数量为num的population
 std::vector<std::vector<int>> initial_population(std::vector<std::vector<canfd_frame*>>& population, std::vector<message>& message_set, int population_size, int frame_count, size_t max_try=5);
 std::vector<std::vector<int>> initial_population(std::vector<std::vector<canfd_frame*>>& population, std::vector<message>& message_set, int population_size, size_t max_try = 5);
+using message_list_ptr = std::vector<message>*; //直接引用系统中的唯一message集合，析构时不释放
+using frame_list_ptr = std::vector<canfd_frame*>*; //每个打包方案都维护一组frame集合，析构时要释放空间
+using message_list = std::vector<message>; //直接引用系统中的唯一message集合，析构时不释放
+using frame_list = std::vector<canfd_frame*>; //每个打包方案都维护一组frame集合，析构时要释放空间
+using message_map_list = std::vector<int>;
+class packing_scheme {
+public:
+	frame_list_ptr frames_p=nullptr;
+	message_list_ptr messages_p = nullptr;
+	message_map_list individual;//根据individual自动生成frames集合
+	double fitness = 0;
+	canfd_utils* canfd_setting = nullptr;
+	std::mt19937 engine;
+	bool schedulability_label;
+	packing_scheme(const packing_scheme& other) {
+		frames_p = other.frames_p;
+		messages_p = other.messages_p;
+		individual = other.individual;
+		fitness = other.fitness;
+		canfd_setting = other.canfd_setting;
+		engine = other.engine;
+		schedulability_label = other.schedulability_label;
+	}
+	~packing_scheme() {
+		auto& frames = *frames_p;
+		for (size_t i = 0; i < frames.size(); i++) {
+			delete frames[i];
+		}
+		delete[] frames_p;
+	}
+	packing_scheme(message_list& _message_list, message_map_list& _message_map, canfd_utils& _canfd_config) {
+		engine = std::mt19937(std::random_device{}());
+		messages_p = &_message_list;
+		individual = _message_map;
+		canfd_setting = &_canfd_config;
+
+		int frames_size = *std::max_element(individual.begin(), individual.end());
+
+		frames_p = new frame_list(frames_size, nullptr);
+		frame_list& frames = (*frames_p);
+		message_list& messages = *(messages_p);
+		for (size_t i = 0; i < individual.size(); i++) {
+			//遍历child，将对应的message插入对应的frame中
+			if (frames[individual[i]] == nullptr) {
+				canfd_frame* frame_p = new canfd_frame(individual[i]);
+				frames[individual[i]] = frame_p;
+			}
+			if (frames[individual[i]]->add_message(messages[i])) {
+				std::cerr << "if (child_frame_list[child[i]]->add_message(outer->message_list[i])) ERRORRRRRRRRRRR\n";
+				abort();
+			}
+		}
+		schedulability_label = assign_priority(frames);
+	}
+	//计算带宽利用率
+	double calc_bandwidth_utilization() {
+		double BWU = 0;
+		auto& frames = *frames_p;
+		for (size_t i = 0; i < frames.size(); i++) {
+			BWU += ((double)canfd_setting->calc_wctt(frames[i]->get_paylaod_size()) / frames[i]->get_period());
+		}
+		return BWU;
+	}
+	//计算fitness的同时，也尝试分配优先级
+	double calc_fitness() {
+		auto& frames = *frames_p;
+		return 1.0 / (assign_priority(frames) + calc_bandwidth_utilization());
+	}
+	//按照遗传算法生成子代
+	packing_scheme create_child_scheme(packing_scheme& other) {
+		//TODO将individual和fp.individual以crossover_point为中心，交换对方的内容，生成新的两个individual
+		std::uniform_int_distribution<int> cross_point_dist(1, messages_p->size() - 2);// 均匀分布的随机整数生成器
+		int crossover_point = cross_point_dist(engine);
+
+		message_map_list map1;
+		message_map_list map2;
+		// 将 individual 的内容拆分为两部分并交叉到 child1 和 child2
+		map1.assign(individual.begin(), individual.begin() + crossover_point);
+		map1.insert(map1.end(), other.individual.begin() + crossover_point, other.individual.end());
+
+		map2.assign(other.individual.begin(), other.individual.begin() + crossover_point);
+		map2.insert(map2.end(), individual.begin() + crossover_point, individual.end());
+
+		int frame_num1 = *std::max_element(map1.begin(), map1.end())+1;
+		int frame_num2 = *std::max_element(map2.begin(), map2.end())+1;
+
+		std::vector<int> count1(frame_num1, 0), count2(frame_num2, 0);
+
+		//计算每个数据帧周期的gcd
+		message_list& messages = *messages_p;
+		for (int i = 0; i < individual.size(); i++) {
+			if (count1[i] == 0) {
+				count1[i] = messages[map1[i]].period;
+			}
+			else {
+				count1[i] = my_algorithm::gcd(messages[map1[i]].period, count1[i]);
+			}
+			if (count2[i] == 0) {
+				count2[i] = messages[map2[i]].period;
+			}
+			else {
+				count2[i] = my_algorithm::gcd(messages[map2[i]].period, count2[i]);
+			}
+		}
+
+		double avg1 = std::accumulate(count1.begin(), count1.end(), 0) / frame_num1; //child1的平均周期
+		double avg2 = std::accumulate(count2.begin(), count2.end(), 0) / frame_num2; //child2的平均周期
+
+		double score1 = my_algorithm::normalizeValue((double)frame_num1, 0.0, 1.0) + my_algorithm::normalizeValue(avg1, 0.0, 1.0);
+		double score2 = my_algorithm::normalizeValue((double)frame_num2, 0.0, 1.0) + my_algorithm::normalizeValue(avg2, 0.0, 1.0);
+
+
+		message_map_list& map = map1;
+		int& frame_num = frame_num1;
+		if (score1 < score2) {
+			map =map2;
+			frame_num = frame_num2;
+		}
+		else {
+			map = map1;
+			frame_num = frame_num1;
+		}
+
+		// 创建一个均匀分布对象，范围是 [0, 1)
+		std::uniform_real_distribution<double> dis_P(0.0, 1.0);
+		double mutation_P = 0.9; //P大于0.9才能变异，概率为10%
+		double P = dis_P(engine);
+
+		frame_list& frames = *frames_p;
+		std::uniform_int_distribution<int> index_dist(0, frame_num-1);
+		int index = index_dist(engine);//随机选一个数据帧
+
+		//变异,随机选一个数据帧，将其内容插到其他数据帧中
+		if (P > mutation_P) {
+
+			for (size_t i = 0; i < individual.size(); i++) {
+				while (map[i] == index) {
+					map[i] = index_dist(engine);
+				}
+				if (map[i] > index) {
+					map[i]--;//去掉空数据帧，编号比他大的自动缩小一号
+				}
+			}
+			frame_num -= 1;
+		}
+		
+		return packing_scheme(messages, map, *(this->canfd_setting));
+	}
+};
+
 class FramePacking
 {
 public:
 	std::vector<message>&message_list;
-	using FitnessFunction = std::function<double(std::vector<canfd_frame*>)>;
 	canfd_utils canfd_setting;
 	int population_size = 10;
 	int frame_num = 9;//TODO 这两个数值可以通过message_list的信息自动确定
-	FramePacking(std::vector<message>& _message_list, canfd_utils _canfd_setting):message_list(_message_list){
+	std::mt19937 engine;
+	FramePacking(std::vector<message>& _message_list, canfd_utils& _canfd_setting):message_list(_message_list){
 		this->canfd_setting = _canfd_setting;
+		this->engine = std::mt19937(std::random_device{}());
 	}
-	//计算fitness的同时，也尝试分配优先级
-	double calc_fitness(std::vector<canfd_frame*> frame_list) {
-		return 1.0 / (assign_priority(frame_list) +calc_bandwidth_utilization(frame_list));
-	}
-	//计算带宽利用率
-double calc_bandwidth_utilization(const std::vector<canfd_frame*>& frameSet) {
-    double BWU = 0;
-    for (size_t i = 0; i < frameSet.size(); i++) {
-        BWU += ((double)canfd_setting.calc_wctt(frameSet[i]->get_paylaod_size()) / frameSet[i]->get_period());
-    }
-    return BWU;
-}
 	std::vector<canfd_frame> message_pack() {
 		std::vector<std::vector<canfd_frame*>> population;   //存储种群
 		//这里生成的种群中的个体不一定都可调度
 		auto individuals = initial_population(population, message_list, population_size);  //individuals中的每个个体表示一个映射关系，index下标对应的message被分配到值对应的frame处
-		std::vector<FitnessPopulationPair>fp(population.size());   //存储每个个体和其fitness的对应关系
 
+		std::vector<packing_scheme>schemes;   //存储每个个体和其fitness的对应关系
+		std::vector<packing_scheme>new_schemes;   //存储每个个体和其fitness的对应关系
+		schemes.reserve(population.size());
 		for (size_t i = 0; i < population.size(); i++) {
-			assign_offset(population[i]);//先为每个个体中的数据帧分配合适的offset
-			fp.push_back(FitnessPopulationPair(population[i], individuals[i],calc_fitness(population[i])));//计算每个个体的fitness，并尝试分配优先级
+			schemes.emplace_back(message_list, individuals[i], canfd_setting);
 		}
 		//按fitness降序排列种群中个体
-		std::sort(fp.begin(), fp.end(), [](const FitnessPopulationPair& a, const FitnessPopulationPair& b) {
-			return  b.fitness< a.fitness; });
+		std::sort(schemes.begin(), schemes.end(), [](const packing_scheme& a, const packing_scheme& b) {
+			return  b.fitness < a.fitness; });
+		int min_bandwidth_utilization = schemes[0].calc_bandwidth_utilization();
+		int iteration_count = 1;
+		int max_iter_num = 500;
+		std::unordered_set<int> index_set;
 
-		int individual_size = individuals[0].size();
+		do {
+			//TODO 使得两个种群个体生成后代
+			for (size_t i = 0; i < std::ceil(population.size() / 2.0); ++i) {
+				new_schemes.emplace_back(std::move(schemes[i].create_child_scheme(schemes[i + 1])));
+			}
+			for (size_t i = 0; i < std::floor(population.size() / 2.0); ++i) {
+				new_schemes.emplace_back(std::move(schemes[i].create_child_scheme(schemes[population.size() - 1 - i])));
+			}
+			for (int i = 0; i < population.size(); i++) {
+				index_set.insert(i);
+			}
+			for (int i = population.size(); i < schemes.size(); i++) {
+				if (schemes[i].schedulability_label == false) {
+					std::uniform_int_distribution<int> index_dist(0, index_set.size() / 2);// 均匀分布的随机整数生成器
+					int index = index_dist(engine);
+					auto it = index_set.begin();
+					std::advance(it, index);
+					schemes[i] = schemes[*it]; //随机选择高fitness祖先替代孩子
 
-		std::random_device rd; // 用于生成种子
-		std::mt19937 gen(rd()); // 伪随机数生成器
-		double mean = individual_size / 2; //希望交叉点相对位于中间，使得更多遗传信息被交换
-		double stddev = 1.0;
-		std::normal_distribution<double> dis(mean, stddev); // 均匀分布的随机整数生成器
+					index_set.erase(it); 
+				}
+				else {
+					schemes[i] = new_schemes[i];
+				}
+			}
+		} while (iteration_count < max_iter_num)
 
-
-		//TODO 使得两个种群个体生成后代
-		for (size_t i = 0; i < std::ceil(population.size()/2.0); ++i) {
-			int crossover_point = 0; //获取随机交叉点
-			do {
-				crossover_point = (int)dis(gen);
-			} while (crossover_point<1 || crossover_point>individual_size - 2);//存在死循环风险
-			fp[i].create_child(fp[i + 1], crossover_point,this);
-		}
-		for (size_t i = 0; i < std::floor(population.size() / 2.0); ++i) {
-			int crossover_point = 0; //获取随机交叉点
-			do {
-				crossover_point = (int)dis(gen);
-			} while (crossover_point<1 || crossover_point>individual_size - 2);//存在死循环风险
-			fp[i].create_child(fp[population.size()-1-i], crossover_point,this);
-		}
 
 
 		//TODO 选择一些个体，让他们生成后代，方法为单点交叉：选择序号 i 为1~ceiling（p/2）的个体，将 i 和 i+1 进行crossover；另选择序号 j为1~floor（p/2）的个体，将其与 n+1-j 号的个体crossover
@@ -88,128 +235,13 @@ double calc_bandwidth_utilization(const std::vector<canfd_frame*>& frameSet) {
 		//建议依照概率丢掉无法调度的个体，然后从父代中随机挑选几个个体替换。
 
 		//直到计算到U不怎么变了为止，或者迭代到极限次数，选择fitness的最优个体作为我们的迭代方案
-		std::vector<canfd_frame> x;
-		return x;
 
 
 
 	}
 private:
-	//FitnessFunction calc_fitness;
-	class FitnessPopulationPair {
 
-	public:
-		double fitness=0;
-		std::vector<canfd_frame*>* frames;
-		std::vector<int>individual;
-		FitnessPopulationPair() { frames = nullptr; }
-		FitnessPopulationPair(std::vector<canfd_frame*>& _frames, std::vector<int>& _individual,double _fitness):frames(&_frames), individual(_individual),fitness(_fitness){}
-		FitnessPopulationPair create_child(FitnessPopulationPair &fp,int crossover_point, FramePacking* outer) {
-
-			//TODO将individual和fp.individual以crossover_point为中心，交换对方的内容，生成新的两个individual
-			std::vector<int> child1 = individual;
-			std::vector<int> child2 = (fp.individual);
-			child1.reserve(individual.size());
-			child2.reserve(individual.size());
-			// 将 individual 的内容拆分为两部分并交叉到 child1 和 child2
-			child1.assign(individual.begin(), individual.begin() + crossover_point);
-			child1.insert(child1.end(), fp.individual.begin() + crossover_point, fp.individual.end());
-
-			child2.assign(fp.individual.begin(), fp.individual.begin() + crossover_point);
-			child2.insert(child2.end(), individual.begin() + crossover_point, individual.end());
-
-			int frame_num1 = *std::max_element(child1.begin(), child1.end());
-			int frame_num2 = *std::max_element(child2.begin(), child2.end());
-			std::vector<int> count1(frame_num1,0), count2(frame_num2,0);
-
-			for (int i = 0; i < individual.size(); i++) {
-				if (count1[i] == 0) {
-					count1[i]= outer->message_list[child1[i]].period;
-				}
-				else {
-					count1[i] = my_algorithm::gcd(outer->message_list[child1[i]].period, count1[i]);
-				}
-				if (count2[i] == 0) {
-					count2[i] = outer->message_list[child2[i]].period;
-				}
-				else {
-					count2[i] = my_algorithm::gcd(outer->message_list[child2[i]].period, count2[i]);
-				}
-			}
-			double avg1 = std::accumulate(count1.begin(), count1.end(), 0) / frame_num1; //child1的平均周期
-			double avg2 = std::accumulate(count2.begin(), count2.end(), 0) / frame_num2; //child2的平均周期
-
-			double score1 = my_algorithm::normalizeValue((double)frame_num1, 0.0, 1.0) + my_algorithm::normalizeValue(avg1, 0.0, 1.0);
-			double score2 = my_algorithm::normalizeValue((double)frame_num2, 0.0, 1.0) + my_algorithm::normalizeValue(avg2, 0.0, 1.0);
-			auto& child = child1;
-			auto& fnum = frame_num1;
-			if (score1 < score2) {
-				child = child2;
-				fnum = frame_num2;
-			}
-			else {
-				child = child1;
-				fnum = frame_num1;
-			}
-
-			// 创建一个随机数引擎
-			std::random_device rd;
-			std::mt19937 gen(rd());
-			// 创建一个均匀分布对象，范围是 [0, 1)
-			std::uniform_real_distribution<double> dis_P(0.0, 1.0);
-			double mutation_P = 0.9;
-			double P = dis_P(gen);
-
-			std::uniform_real_distribution<int> dis_index(0, (*frames).size() - 1);
-			int index = dis_index(gen);
-
-			//变异,随机选一个数据帧，将其内容插到其他数据帧中
-			if (P > mutation_P) {
-
-				for (size_t i = 0; i < individual.size(); i++) {
-					if (child[i] == index) {
-						child[i] = dis_index(gen);
-					}
-				}
-				fnum -= 1;
-			}
-			//TODO 根据child生成一个frame数组
-			std::vector<canfd_frame*>* child_frame_list_p=new std::vector<canfd_frame*>(fnum,nullptr);
-			auto& child_frame_list = (*child_frame_list_p);
-			//canfd_frame* frame = new canfd_frame(i);
-			for (size_t i = 0; i < individual.size(); i++) {
-				//遍历child，将对应的message插入对应的frame中
-				if(child_frame_list[child[i]]==nullptr){
-					canfd_frame* frame = new canfd_frame(child[i]<index?child[i]:child[i]-1);
-					child_frame_list[child[i]] = frame;
-				}
-				if (child_frame_list[child[i]]->add_message(outer->message_list[i])) {
-					std::cerr << "if (child_frame_list[child[i]]->add_message(outer->message_list[i])) ERRORRRRRRRRRRR\n";
-					abort();
-				}
-			}
-			assign_offset(child_frame_list);
-			assign_priority(child_frame_list);//有必要修改assign_priority使得，即使不能调度也能强行分配。
-			return FitnessPopulationPair(child_frame_list, child, outer->calc_fitness(child_frame_list));
-
-			//严重问题 它似乎认为 优先级一定能分配成功，但由于打包的问题，有的任务会无法完成
-
-			//TODO 根据两个child，累计每一个个体的每一个帧中，相同周期的message的最大出现次数，每个个体维护一个最大个数，选择最大次数最大的个体，如都一致，选择数据帧小的个体
-			//并对其依照概率P选择一个已经打包的帧，将其中的信号后随机拆分到其他几个帧中，依次来减少一个帧
-			// //【很可能该操作会因为其他数据帧很满而无法拆分或降低可调度性】，
-			// 因此建议P选择不要太大
-			//生成一个VECTOR<canfd_frame> ，分配offset并检测可调度性
-			// 如果不具备可调度性，选择那些高优先级任务，尝试将它们合并，减少高优先级任务的数量，从而减少其对低优先级任务的干扰
-			// 但是有一个问题，就是合并高优先级帧，会可能会导致合并后的高优先级帧周期更小，从而产生更多的影响
-			// 应该设计一种能增高数据帧周期的打包方式，也要兼顾减少高优先级数据帧的数量
-			// 如果仍不能通过检测，则从父代中随机选择几个高fitness个体作为子代。
-			//生成一个新的FitnessPopulationPair并返回
-
-
-
-
-		}
-	};
+	
 
 };
 

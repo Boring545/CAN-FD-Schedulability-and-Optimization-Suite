@@ -39,7 +39,7 @@ bool feasibility_check(std::vector<canfd_frame*>& frame_set, int taski, int pri,
 //按照assign_table的顺序，依次从第到高尝试分配优先级【frame_set为待分配优先级任务集合】
 bool feasibility_check(std::vector<canfd_frame*>& frame_set, std::vector<int>& assign_table);
 //自动向frame_set中的frame分配优先级【frame_set为待分配优先级任务集合】
-bool assign_priority(std::vector<canfd_frame*>& frame_set);
+bool assign_priority(std::vector<canfd_frame*>& frame_set, int schedule_require = false);
 
 class PriorityArrangement {
     
