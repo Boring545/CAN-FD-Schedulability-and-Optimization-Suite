@@ -26,7 +26,7 @@ public:
 	double fitness = 0;
 	canfd_utils* canfd_setting = nullptr;
 	std::mt19937 engine;
-	bool schedulability_label=false;
+	bool schedulability_label=false;//true 可调度，默认false不可调度
 	packing_scheme(){}
 	packing_scheme(const packing_scheme& other) {
 		frames_p = other.frames_p;
@@ -71,6 +71,7 @@ public:
 		}
 		assign_offset(frames);
 		schedulability_label = assign_priority(frames);//分配优先级
+		fitness = calc_fitness();
 	}
 	//计算带宽利用率
 	double calc_bandwidth_utilization() {
@@ -81,10 +82,10 @@ public:
 		}
 		return BWU;
 	}
-	//计算fitness的同时，也尝试分配优先级
+	//计算fitness
 	double calc_fitness() {
 		auto& frames = *frames_p;
-		return 1.0 / (assign_priority(frames) + calc_bandwidth_utilization());
+		return 1.0 / ((schedulability_label?0:1) + calc_bandwidth_utilization());
 	}
 	//按照遗传算法生成子代
 	packing_scheme create_child_scheme(packing_scheme& other) {
@@ -196,7 +197,7 @@ public:
 		for (size_t i = 0; i < population.size(); i++) {
 			schemes.emplace_back(message_list, individuals[i], canfd_setting);
 		}
-		//按fitness降序排列种群中个体
+		//按fitness降序排列种群中个体,fitness越大越好
 		std::sort(schemes.begin(), schemes.end(), [](const packing_scheme& a, const packing_scheme& b) {
 			return  b.fitness < a.fitness; });
 		int min_bandwidth_utilization = schemes[0].calc_bandwidth_utilization();
@@ -247,6 +248,7 @@ public:
 			}
 
 			//迭代到max_iter_num次后自动退出
+			iteration_count++;
 		} while (iteration_count < max_iter_num);
 
 		return best_scheme;

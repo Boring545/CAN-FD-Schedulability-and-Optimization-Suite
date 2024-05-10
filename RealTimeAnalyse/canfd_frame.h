@@ -40,9 +40,9 @@ public:
     static void write_messages(const std::vector<message>& message_set, int ecu_id, const std::string& directory, bool append = false);
     //随机生成一个合规的messgae
     /*static message generate_random_message(std::vector<int>& available_ids, std::mutex& id_mutex);*/
-    static message generate_random_message(std::unordered_set<int>& available_ids, std::mutex& id_mutex, int period_base=2);
+    static message generate_random_message(std::unordered_set<int>& available_ids, std::mutex& id_mutex, canfd_utils setting, int period_base);
     // 并行生成随机 message 的函数,available_ids的每个元素代表一个可用使用的id
-    static void parallel_generate_messages(std::vector<message>& message_set, size_t num_messages, std::unordered_set<int>& available_ids, std::mutex& id_mutex);
+    static void parallel_generate_messages(std::vector<message>& message_set, size_t num_messages, std::unordered_set<int>& available_ids, std::mutex& id_mutex,canfd_utils setting);
     
     static void print_messages(const std::vector<message>&message_set);
 };
@@ -81,7 +81,7 @@ public:
     
 
 
-    static constexpr int max_data_size=64;   // 最大数据负载，默认为 64
+    static constexpr int max_data_size=512;   // 最大数据负载，默认为 64
     std::vector<message*> message_p_list; // TODO 最好将message_list迁移到这上面
 
     //创建canfd帧时，要么用于传递控制消息，要么用于包裹message来组成数据帧，控制消息估计会自动提供优先级，数据帧优先级由所传递的任务决定，故数据帧可不给优先级

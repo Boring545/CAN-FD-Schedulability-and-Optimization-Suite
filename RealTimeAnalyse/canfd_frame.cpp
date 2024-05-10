@@ -60,8 +60,8 @@ std::vector<message> message::read_messages(const std::string& filename) {
         int exec_time = std::stoi(exec_time_str);
 
         // 输入合法性检查
-        if (data_size < 0 || period < 0 || deadline < 0 || priority < 0 || exec_time < 0 || data_size > 64 || priority > 2047) {
-            std::cerr << "Error: 不合法的输入 位于 行 " << line_number << "\n(提示：data_size, period, deadline, priority, exec_time 应非负, priority 应属于 [0 , 2047], data size 不应超过 64 bytes)" << std::endl;
+        if (data_size < 0 || period < 0 || deadline < 0 || priority < 0 || exec_time < 0 || data_size > 512 || priority > 2047) {
+            std::cerr << "Error: 不合法的输入 位于 行 " << line_number << "\n(提示：data_size, period, deadline, priority, exec_time 应非负, priority 应属于 [0 , 2047], data size 不应超过 64 bytes(512b))" << std::endl;
             continue; // 跳过当前行
         }
 
@@ -116,7 +116,7 @@ std::vector<message> message::read_messages(int ecu_id, const std::string& direc
     std::string filename = directory + "/ecu" + std::to_string(ecu_id) + "_messages.txt";
     return read_messages(filename);
 }
-message message::generate_random_message(std::unordered_set<int>& available_ids, std::mutex& id_mutex,int period_base) {
+message message::generate_random_message(std::unordered_set<int>& available_ids, std::mutex& id_mutex, canfd_utils setting,int period_base) {
     std::random_device rd;
     std::mt19937 gen(rd());
 
@@ -153,7 +153,7 @@ message message::generate_random_message(std::unordered_set<int>& available_ids,
     double deadline_double;
     do {
         deadline_double = deadline_dist(gen);
-    } while (deadline_double <= canfd_utils().worst_wctt || deadline_double >= period); // 保证 deadline 在 [worst_wctt, period] 范围内
+    } while (deadline_double <= setting.worst_wctt || deadline_double >= period); // 保证 deadline 在 [worst_wctt, period] 范围内
     double deadline =deadline_double;
 
     /////////////随机生成优先级【待删除】
@@ -186,13 +186,10 @@ message message::generate_random_message(std::unordered_set<int>& available_ids,
         data_size = (int)data_size_dist(gen);
     } while (data_size < 0 || data_size > 512);//数据长度单位为b 位，最大64byte，即512位
 
-    std::string data;
+    std::string data("data");
     //TODO 向data填充data_size长度的数据，要求还能在readmessage函数中还原
     // 存储应该选用std::vector<bool>
-    //for (int i = 0; i < data_size; ++i) {
-    //    char random_char = static_cast<char>(gen() % 26 + 'a');
-    //    data.push_back(random_char);
-    //}
+    // 注意：为了方便 只存储 data四个字母
 
     // 返回生成的 message 对象
     return message(id, data_size, period, deadline, priority, exec_time, data);
@@ -231,7 +228,7 @@ message message::generate_random_message(std::unordered_set<int>& available_ids,
 //        message_set.insert(message_set.end(), thread_message_set.begin(), thread_message_set.end());
 //    }
 //}
-void message::parallel_generate_messages(std::vector<message>& message_set, size_t num_messages, std::unordered_set<int>& available_ids, std::mutex& id_mutex) {
+void message::parallel_generate_messages(std::vector<message>& message_set, size_t num_messages, std::unordered_set<int>& available_ids, std::mutex& id_mutex,canfd_utils setting) {
     size_t messages_per_thread = std::max((int)ceil((double)num_messages / std::thread::hardware_concurrency()), (50));
     size_t num_threads = std::min(std::thread::hardware_concurrency(), (unsigned int)(std::ceil((double)(num_messages) / messages_per_thread)));
     // 创建线程并生成消息
@@ -243,7 +240,7 @@ void message::parallel_generate_messages(std::vector<message>& message_set, size
             // 在每个线程中生成消息
             for (size_t j = 0; j < messages_per_thread && (thread_index * messages_per_thread + j) < num_messages; ++j) {
                 // 调用生成随机 message 的函数
-                message new_message = generate_random_message(available_ids, id_mutex);
+                message new_message = generate_random_message(available_ids, id_mutex,setting,2);
                 // 将生成的 message 添加到该线程的消息集合中
                 thread_message_sets[thread_index].push_back(new_message);
             }
@@ -345,7 +342,7 @@ int canfd_frame::payload_size_trans(int size) {
     int payload_sizes[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48, 64 };
     int num_sizes = sizeof(payload_sizes) / sizeof(payload_sizes[0]);
     for (int i = 0; i < num_sizes; ++i) {
-        if (size <= payload_sizes[i]) {
+        if (double(size/8.0) <= payload_sizes[i]) {
             return payload_sizes[i];
         }
     }
