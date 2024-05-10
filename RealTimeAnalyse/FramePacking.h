@@ -200,10 +200,10 @@ public:
 		//按fitness降序排列种群中个体,fitness越大越好
 		std::sort(schemes.begin(), schemes.end(), [](const packing_scheme& a, const packing_scheme& b) {
 			return  b.fitness < a.fitness; });
-		int min_bandwidth_utilization = schemes[0].calc_bandwidth_utilization();
-		int iteration_count = 1;
-		int max_iter_num = 500;
-		std::unordered_set<int> index_set;
+
+		int iteration_count = 1;//迭代计数器
+		int max_iter_num = 500; //最大迭代次数
+		std::unordered_set<int> index_set;//随机下标取用集合
 
 		packing_scheme best_scheme= schemes[0];
 
@@ -217,7 +217,7 @@ public:
 			}
 
 
-			//随机下标取用集合
+			//初始化随机下标取用集合
 			for (int i = 0; i < population.size(); i++) {
 				index_set.insert(i);
 			}
