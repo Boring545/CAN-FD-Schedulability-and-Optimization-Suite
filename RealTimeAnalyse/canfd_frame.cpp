@@ -187,10 +187,12 @@ message message::generate_random_message(std::unordered_set<int>& available_ids,
     } while (data_size < 0 || data_size > 512);//数据长度单位为b 位，最大64byte，即512位
 
     std::string data;
-    for (int i = 0; i < data_size; ++i) {
-        char random_char = static_cast<char>(gen() % 26 + 'a');
-        data.push_back(random_char);
-    }
+    //TODO 向data填充data_size长度的数据，要求还能在readmessage函数中还原
+    // 存储应该选用std::vector<bool>
+    //for (int i = 0; i < data_size; ++i) {
+    //    char random_char = static_cast<char>(gen() % 26 + 'a');
+    //    data.push_back(random_char);
+    //}
 
     // 返回生成的 message 对象
     return message(id, data_size, period, deadline, priority, exec_time, data);
