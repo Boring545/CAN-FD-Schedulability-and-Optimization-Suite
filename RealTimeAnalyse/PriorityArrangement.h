@@ -28,7 +28,7 @@ bool create_beta(const std::vector<canfd_frame*>& frame_set, const canfd_frame& 
 //计算剩余干涉R_t_i：在时刻upper时 release的优先级 i 任务所面对的之前高优先级任务未完成的剩余执行时间,lower=upper-T_i+D_i
 double calc_remain_interf(const canfd_frame& frame, int t, std::vector<betaset>& beta);
 //生成η集合
-bool  create_eta(const std::vector<canfd_frame*>& frame_set, const canfd_frame& frame, int t, int R, std::vector<betaset>& eta);
+bool  create_eta(const std::vector<canfd_frame*>& frame_set, const canfd_frame& frame, int t, double R, std::vector<betaset>& eta);
 //计算在t时刻优先级i 任务release后release的新任务产生的影响时间
 double calc_create_interf(const canfd_frame& frame, const int t, const int R, const std::vector<betaset>& eta);
 //检测任务集可行性

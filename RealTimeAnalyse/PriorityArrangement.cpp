@@ -2,7 +2,7 @@
 #include "PriorityArrangement.h"
 int offset_trans(int target, int basis, int T) {
     if (target < basis) {
-        target = ceil(((double)basis - target) / T) * T + target;
+        target = (int)ceil(double(basis - target) / T) * T + target;
     }
     return target - basis;
 }
@@ -49,7 +49,7 @@ bool find_interval(const std::vector<canfd_frame*>& frame_set, std::vector<int>&
     upper_bound.resize(frame_set.size());
     //lower_bound[0] = 0; upper_bound[0] = temp_p[0];
     for (size_t i = 0; i < frame_set.size(); i++) {
-        int quotient = ceil((double)(omax[i]) / frame_set[i]->get_period());
+        int quotient = ceil(double(omax[i]) / frame_set[i]->get_period());
         lower_bound[i] = (int)(quotient * frame_set[i]->get_period());
         upper_bound[i] = lower_bound[i] + temp_p;
     }
@@ -76,7 +76,7 @@ bool create_beta(const std::vector<canfd_frame*>& frame_set, const canfd_frame& 
 }
 
 
-bool  create_eta(const std::vector<canfd_frame*>& frame_set, const canfd_frame& frame, int t, int R, std::vector<betaset>& eta) {
+bool  create_eta(const std::vector<canfd_frame*>& frame_set, const canfd_frame& frame, int t, double R, std::vector<betaset>& eta) {
     int lower = R + t;
     int upper = lower + frame.get_deadline();
     for (size_t i = 0; i < frame_set.size(); i++) {
@@ -99,7 +99,7 @@ double calc_remain_interf(const canfd_frame& frame, int t, std::vector<betaset>&
     double R = 0;
     int time = t - frame.get_period() + frame.get_deadline();
     time = 0;
-    for (betaset b : beta) {
+    for (const betaset& b : beta) {
         //time为之前一次任务m的启动时间，因为其他任务都能比任务m先执行，
         //R为已经考虑的任务的执行的时间和，R+time<tr表示之前的任务自从release后，
         //其一定执行完毕，下一个任务不需要再考虑以前的任务了。
@@ -122,7 +122,7 @@ double calc_create_interf(const canfd_frame& frame, const int t, const int R, co
     int next_free = R + t;
     double K = 0;
     double total_created = R;
-    for (betaset e : eta) {
+    for (const betaset& e : eta) {
         total_created += e.C;
         if (next_free < e.tr) { next_free = e.tr; }
         K = K + std::min(t + (double)frame.get_deadline() - next_free, e.C);

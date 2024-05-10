@@ -18,13 +18,13 @@
 //文件开始为描述信息，如果读取到空行，此后每行表示一个message，
 class message {
 public:
-    int data_size; // 数据尺寸,单位为BYTE//TODO 以后再改成位
+    int data_size=-1; // 数据尺寸,单位为BYTE//TODO 以后再改成位
     
-    int period;    // 周期  单位可以是ms、us、ns
-    int priority;  //优先级 【考虑删除的属性】
-    double deadline;   //消息截止日期 单位同周期，单位可以是ms、us、ns
-    int exec_time;  //【考虑删除的属性】
-    int id;     
+    int period=-1;    // 周期  单位可以是ms、us、ns
+    int priority=INT16_MAX;  //优先级 【考虑删除的属性】
+    double deadline=-1;   //消息截止日期 单位同周期，单位可以是ms、us、ns
+    int exec_time=-1;  //【考虑删除的属性】
+    int id=-1;     
     std::string data; //用于装载传输的信息，默认不填写，大小可能有限制
     message(int _id, int _data_size, int _period, double _deadline, int _priority, int _exec_time, std::string _data = "")
     :id(_id),data_size(_data_size),period(_period),deadline(_deadline),priority(_priority),exec_time(_exec_time){

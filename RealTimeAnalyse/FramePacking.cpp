@@ -157,7 +157,7 @@ std::vector<std::vector<int>> initial_population(std::vector<std::vector<canfd_f
     }
     return individuals;
 }
-std::vector<std::vector<int>> initial_population(std::vector<std::vector<canfd_frame*>>& population, std::vector<message>& message_set, int population_size, size_t max_try) {
+std::vector<std::vector<int>> initial_population(std::vector<std::vector<canfd_frame*>>& population, std::vector<message>& message_set, size_t population_size, size_t max_try) {
     // 创建一个 unordered_set 用于跟踪可用消息指针
     std::unordered_set<message*> message_p_set;
     message_p_set.reserve(message_set.size());

@@ -10,7 +10,7 @@
 std::vector<int> generate_individual(const std::unordered_set< message*>& message_p_set, std::vector<canfd_frame*>& frame_list, size_t max_try = 5);
 //随机生成数量为num的population
 std::vector<std::vector<int>> initial_population(std::vector<std::vector<canfd_frame*>>& population, std::vector<message>& message_set, int population_size, int frame_count, size_t max_try=5);
-std::vector<std::vector<int>> initial_population(std::vector<std::vector<canfd_frame*>>& population, std::vector<message>& message_set, int population_size, size_t max_try = 5);
+std::vector<std::vector<int>> initial_population(std::vector<std::vector<canfd_frame*>>& population, std::vector<message>& message_set, size_t population_size, size_t max_try = 5);
 using message_list_ptr = std::vector<message>*; //直接引用系统中的唯一message集合，析构时不释放
 using frame_list_ptr = std::vector<canfd_frame*>*; //每个打包方案都维护一组frame集合，析构时要释放空间
 using message_list = std::vector<message>; //直接引用系统中的唯一message集合，析构时不释放

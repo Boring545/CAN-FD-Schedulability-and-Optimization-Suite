@@ -192,7 +192,7 @@ message message::generate_random_message(std::unordered_set<int>& available_ids,
     // 注意：为了方便 只存储 data四个字母
 
     // 返回生成的 message 对象
-    return message(id, data_size, period, deadline, priority, exec_time, data);
+    return message(id, (int)data_size, period, deadline, priority, exec_time, data);
 }
 
 
