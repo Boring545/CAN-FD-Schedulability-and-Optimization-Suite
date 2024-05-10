@@ -22,11 +22,11 @@ public:
     
     int period;    // 周期  单位可以是ms、us、ns
     int priority;  //优先级 【考虑删除的属性】
-    int deadline;   //消息截止日期 单位同周期，单位可以是ms、us、ns
+    double deadline;   //消息截止日期 单位同周期，单位可以是ms、us、ns
     int exec_time;  //【考虑删除的属性】
     int id;     
     std::string data; //用于装载传输的信息，默认不填写，大小可能有限制
-    message(int _id, int _data_size, int _period, int _deadline, int _priority, int _exec_time, std::string _data = "")
+    message(int _id, int _data_size, int _period, double _deadline, int _priority, int _exec_time, std::string _data = "")
     :id(_id),data_size(_data_size),period(_period),deadline(_deadline),priority(_priority),exec_time(_exec_time){
         data = _data;
     }
@@ -61,7 +61,7 @@ class canfd_frame {
 private:
     int data_size = 0;      // 已装载数据长度，默认为空
     int payload_size = 0; //payload尺寸和数据尺寸不完全一样，取值有0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48 or 64 bytes
-    int deadline=-1;  //TODO deadline和period也许需要在最开始给出一个默认值
+    double deadline=-1;  //TODO deadline和period也许需要在最开始给出一个默认值
     int period=-1;     
     std::string identifier; // 优先级标识,一共11位二进制数，表示1~2048，需要将其换算为10进制存在priority中
     int priority=-1;
@@ -121,7 +121,7 @@ public:
     int get_period() const {
         return this->period;
     }
-    int get_deadline() const {
+    double get_deadline() const {
         return this->deadline;
     }
     double get_exec_time() const {
@@ -141,7 +141,7 @@ public:
         type = CAN_Frame_Type::NULL_FRAME;
         this->id = _id;
     }
-    canfd_frame(int _offset,int _exec,int _deadline,int _period,int _id) {
+    canfd_frame(int _offset,int _exec,double _deadline,int _period,int _id) {
         offset = _offset;
         exec_time = _exec;
         deadline = _deadline;
@@ -150,8 +150,8 @@ public:
         type = CAN_Frame_Type::NULL_FRAME;
     }
     ~canfd_frame() {
-        this->message_p_list.clear();
-        this->identifier.clear();
+        //this->message_p_list.clear();
+        //this->identifier.clear();
     }
     void clear() {
         this->message_p_list.clear();

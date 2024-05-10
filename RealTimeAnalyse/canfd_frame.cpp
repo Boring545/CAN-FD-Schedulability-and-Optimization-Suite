@@ -55,7 +55,7 @@ std::vector<message> message::read_messages(const std::string& filename) {
         int id = std::stoi(id_str);
         int data_size = std::stoi(data_size_str);
         int period = std::stoi(period_str);
-        int deadline = std::stoi(deadline_str);
+        double deadline = std::stod(deadline_str);
         int priority = std::stoi(priority_str);
         int exec_time = std::stoi(exec_time_str);
 
@@ -153,8 +153,8 @@ message message::generate_random_message(std::unordered_set<int>& available_ids,
     double deadline_double;
     do {
         deadline_double = deadline_dist(gen);
-    } while (deadline_double < 1 || deadline_double > period); // 保证 deadline 在 [1, period] 范围内
-    int deadline = static_cast<int>(deadline_double);
+    } while (deadline_double <= canfd_utils().worst_wctt || deadline_double >= period); // 保证 deadline 在 [worst_wctt, period] 范围内
+    double deadline =deadline_double;
 
     /////////////随机生成优先级【待删除】
     std::uniform_int_distribution<int> priority_dist(0, 2047);
@@ -177,14 +177,14 @@ message message::generate_random_message(std::unordered_set<int>& available_ids,
     int exec_time = std::max(1, (int)exec_time_double);
 
     ////////////////////随机生成数据
-    mean = 8;
+    mean = 32;
     stddev = 3;
     // 创建正态分布对象
     std::normal_distribution<double> data_size_dist(mean, stddev);
     double data_size=0;
     do {
         data_size = (int)data_size_dist(gen);
-    } while (data_size < 0 || data_size > 64);
+    } while (data_size < 0 || data_size > 512);//数据长度单位为b 位，最大64byte，即512位
 
     std::string data;
     for (int i = 0; i < data_size; ++i) {
@@ -382,7 +382,8 @@ bool canfd_frame::add_message(message& m, bool priority_flag) {
 
     else {
         double wctt = 0;
-        int temp_period = 0, min_deadline = 0;
+        int temp_period = 0;
+        double min_deadline = 0;
         if (this->message_p_list.empty() ){
             temp_period = m.period;
             min_deadline = m.deadline;
@@ -395,7 +396,7 @@ bool canfd_frame::add_message(message& m, bool priority_flag) {
             temp_period = my_algorithm::gcd(this->period, m.period);
             min_deadline = std::min(this->deadline, m.deadline);
             wctt = canfd_utils().calc_wctt(canfd_frame::payload_size_trans(m.data_size + this->data_size));
-            if ((min_deadline != -1 && temp_period < min_deadline) || min_deadline <= wctt) {
+            if ( min_deadline <= wctt) {
                 //TODO 执行时间exec_time是否需要纳入考虑？ 比如exec_time应该小于deadline
                 return false;
             }

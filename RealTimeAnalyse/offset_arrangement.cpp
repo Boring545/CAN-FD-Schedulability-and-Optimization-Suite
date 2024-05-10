@@ -13,14 +13,20 @@ bool  assign_offset(std::vector<canfd_frame*>& frame_set) {
 	if (frame_set.empty()) {
 		return false;
 	}
-	std::vector<canfd_frame*> frame_set_copy(frame_set.begin(), frame_set.end());
+	std::vector<canfd_frame*> frame_set_copy;
+	for (auto& cfp : frame_set) {
+		if (cfp->get_deadline() != -1) {
+			frame_set_copy.push_back(cfp);
+		}
+	}
+	int actual_amount = frame_set_copy.size();//实际需要分配优先级的帧数量
 
 	//按照周期升序排列
 	std::sort(frame_set_copy.begin(), frame_set_copy.end(),
 		[](const canfd_frame* a, const canfd_frame* b) {
 			return a->get_period() < b->get_period();
 		});
-	int g = calc_time_granularity(frame_set); //计算时间粒度g
+	int g = calc_time_granularity(frame_set_copy); //计算时间粒度g
 	std::vector<int> released(frame_set_copy[frame_set_copy.size() - 1]->get_period() / g, 0); //记录每个帧的release时间
 	
 	int temp_interval = 0,max_interval = 0;//最大的最小负载间隔

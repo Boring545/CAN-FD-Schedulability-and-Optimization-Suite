@@ -16,6 +16,8 @@ using frame_list_ptr = std::vector<canfd_frame*>*; //每个打包方案都维护一组frame
 using message_list = std::vector<message>; //直接引用系统中的唯一message集合，析构时不释放
 using frame_list = std::vector<canfd_frame*>; //每个打包方案都维护一组frame集合，析构时要释放空间
 using message_map_list = std::vector<int>;
+
+//封装了一组canfd_frame
 class packing_scheme {
 public:
 	frame_list_ptr frames_p=nullptr;
@@ -24,7 +26,8 @@ public:
 	double fitness = 0;
 	canfd_utils* canfd_setting = nullptr;
 	std::mt19937 engine;
-	bool schedulability_label;
+	bool schedulability_label=false;
+	packing_scheme(){}
 	packing_scheme(const packing_scheme& other) {
 		frames_p = other.frames_p;
 		messages_p = other.messages_p;
@@ -35,11 +38,12 @@ public:
 		schedulability_label = other.schedulability_label;
 	}
 	~packing_scheme() {
-		auto& frames = *frames_p;
-		for (size_t i = 0; i < frames.size(); i++) {
-			delete frames[i];
-		}
-		delete[] frames_p;
+		//auto& frames = *frames_p;
+		//for (size_t i = 0; i < frames.size(); i++) {
+		//	delete frames[i];
+		//}
+		////TODO 内存泄露风险
+		///*delete frames_p;*/
 	}
 	packing_scheme(message_list& _message_list, message_map_list& _message_map, canfd_utils& _canfd_config) {
 		engine = std::mt19937(std::random_device{}());
@@ -47,23 +51,26 @@ public:
 		individual = _message_map;
 		canfd_setting = &_canfd_config;
 
-		int frames_size = *std::max_element(individual.begin(), individual.end());
+		int frames_size = *std::max_element(individual.begin(), individual.end())+1;
 
-		frames_p = new frame_list(frames_size, nullptr);
+		frames_p = new frame_list(frames_size);
 		frame_list& frames = (*frames_p);
+		for (size_t i = 0; i < frames_size; i++) {
+			canfd_frame* frame_p = new canfd_frame(i);
+			frames[i]=frame_p;
+		}
+
 		message_list& messages = *(messages_p);
 		for (size_t i = 0; i < individual.size(); i++) {
 			//遍历child，将对应的message插入对应的frame中
-			if (frames[individual[i]] == nullptr) {
-				canfd_frame* frame_p = new canfd_frame(individual[i]);
-				frames[individual[i]] = frame_p;
-			}
-			if (frames[individual[i]]->add_message(messages[i])) {
+			//这里默认individual的元素是从0~1连续的
+			if (frames[individual[i]]->add_message(messages[i])==false) {
 				std::cerr << "if (child_frame_list[child[i]]->add_message(outer->message_list[i])) ERRORRRRRRRRRRR\n";
 				abort();
 			}
 		}
-		schedulability_label = assign_priority(frames);
+		assign_offset(frames);
+		schedulability_label = assign_priority(frames);//分配优先级
 	}
 	//计算带宽利用率
 	double calc_bandwidth_utilization() {
@@ -87,38 +94,41 @@ public:
 
 		message_map_list map1;
 		message_map_list map2;
-		// 将 individual 的内容拆分为两部分并交叉到 child1 和 child2
+		// 将 individual 的内容拆分为两部分并交叉到 child1 和 child2【交叉可能导致出现map里id不连续的问题】
 		map1.assign(individual.begin(), individual.begin() + crossover_point);
 		map1.insert(map1.end(), other.individual.begin() + crossover_point, other.individual.end());
 
 		map2.assign(other.individual.begin(), other.individual.begin() + crossover_point);
 		map2.insert(map2.end(), individual.begin() + crossover_point, individual.end());
 
+		//获取map里标识的最大帧数量
 		int frame_num1 = *std::max_element(map1.begin(), map1.end())+1;
 		int frame_num2 = *std::max_element(map2.begin(), map2.end())+1;
 
+		//count 记录了每个数据帧的周期
 		std::vector<int> count1(frame_num1, 0), count2(frame_num2, 0);
 
 		//计算每个数据帧周期的gcd
 		message_list& messages = *messages_p;
-		for (int i = 0; i < individual.size(); i++) {
-			if (count1[i] == 0) {
-				count1[i] = messages[map1[i]].period;
+		for (int i = 0; i < messages.size(); i++) {
+			if (count1[map1[i]] == 0) {
+				count1[map1[i]] = messages[i].period;
 			}
 			else {
-				count1[i] = my_algorithm::gcd(messages[map1[i]].period, count1[i]);
+				count1[map1[i]] = my_algorithm::gcd(messages[i].period, count1[map1[i]]);
 			}
-			if (count2[i] == 0) {
-				count2[i] = messages[map2[i]].period;
+			if (count2[map2[i]] == 0) {
+				count2[map2[i]] = messages[i].period;
 			}
 			else {
-				count2[i] = my_algorithm::gcd(messages[map2[i]].period, count2[i]);
+				count2[map2[i]] = my_algorithm::gcd(messages[i].period, count2[map2[i]]);
 			}
 		}
 
 		double avg1 = std::accumulate(count1.begin(), count1.end(), 0) / frame_num1; //child1的平均周期
 		double avg2 = std::accumulate(count2.begin(), count2.end(), 0) / frame_num2; //child2的平均周期
 
+		//根据该分数，保留分高的那个子代
 		double score1 = my_algorithm::normalizeValue((double)frame_num1, 0.0, 1.0) + my_algorithm::normalizeValue(avg1, 0.0, 1.0);
 		double score2 = my_algorithm::normalizeValue((double)frame_num2, 0.0, 1.0) + my_algorithm::normalizeValue(avg2, 0.0, 1.0);
 
@@ -126,11 +136,11 @@ public:
 		message_map_list& map = map1;
 		int& frame_num = frame_num1;
 		if (score1 < score2) {
-			map =map2;
+			map =map2;//保留子代2
 			frame_num = frame_num2;
 		}
 		else {
-			map = map1;
+			map = map1;//保留子代1
 			frame_num = frame_num1;
 		}
 
@@ -150,9 +160,9 @@ public:
 				while (map[i] == index) {
 					map[i] = index_dist(engine);
 				}
-				if (map[i] > index) {
-					map[i]--;//去掉空数据帧，编号比他大的自动缩小一号
-				}
+				//if (map[i] > index) {
+				//	map[i]--;//去掉空数据帧，编号比他大的自动缩小一号
+				//}
 			}
 			frame_num -= 1;
 		}
@@ -173,7 +183,9 @@ public:
 		this->canfd_setting = _canfd_setting;
 		this->engine = std::mt19937(std::random_device{}());
 	}
-	std::vector<canfd_frame> message_pack() {
+
+	//使用遗传算法打包
+	packing_scheme message_pack() {
 		std::vector<std::vector<canfd_frame*>> population;   //存储种群
 		//这里生成的种群中的个体不一定都可调度
 		auto individuals = initial_population(population, message_list, population_size);  //individuals中的每个个体表示一个映射关系，index下标对应的message被分配到值对应的frame处
@@ -192,34 +204,52 @@ public:
 		int max_iter_num = 500;
 		std::unordered_set<int> index_set;
 
+		packing_scheme best_scheme= schemes[0];
+
 		do {
-			//TODO 使得两个种群个体生成后代
+			//使得两个种群个体生成后代,后代先装到new_schemes里临时存储一下
 			for (size_t i = 0; i < std::ceil(population.size() / 2.0); ++i) {
-				new_schemes.emplace_back(std::move(schemes[i].create_child_scheme(schemes[i + 1])));
+				new_schemes.push_back(schemes[i].create_child_scheme(schemes[i + 1]));
 			}
 			for (size_t i = 0; i < std::floor(population.size() / 2.0); ++i) {
-				new_schemes.emplace_back(std::move(schemes[i].create_child_scheme(schemes[population.size() - 1 - i])));
+				new_schemes.push_back(schemes[i].create_child_scheme(schemes[population.size() - 1 - i]));
 			}
+
+
+			//随机下标取用集合
 			for (int i = 0; i < population.size(); i++) {
 				index_set.insert(i);
 			}
 			for (int i = population.size(); i < schemes.size(); i++) {
+				//对于不可调度的子代
 				if (schemes[i].schedulability_label == false) {
+					//TODO 补救一下，让他重新可调度
 					std::uniform_int_distribution<int> index_dist(0, index_set.size() / 2);// 均匀分布的随机整数生成器
 					int index = index_dist(engine);
 					auto it = index_set.begin();
 					std::advance(it, index);
-					schemes[i] = schemes[*it]; //随机选择高fitness祖先替代孩子
+					schemes[i] = schemes[*it]; //随机选择高fitness祖先替代不可调度的孩子，范围为population前半部分
 
-					index_set.erase(it); 
+					index_set.erase(it); //从下标取用集合中删除已经用过的下标
 				}
 				else {
+					//可以调度的子代直接保留
 					schemes[i] = new_schemes[i];
 				}
 			}
-		} while (iteration_count < max_iter_num)
+			new_schemes.clear();
 
+			//重新按fitness降序排序
+			std::sort(schemes.begin(), schemes.end(), [](const packing_scheme& a, const packing_scheme& b) {
+				return  b.fitness < a.fitness; });
+			if (best_scheme.fitness < schemes[0].fitness) {
+				best_scheme = schemes[0];
+			}
 
+			//迭代到max_iter_num次后自动退出
+		} while (iteration_count < max_iter_num);
+
+		return best_scheme;
 
 		//TODO 选择一些个体，让他们生成后代，方法为单点交叉：选择序号 i 为1~ceiling（p/2）的个体，将 i 和 i+1 进行crossover；另选择序号 j为1~floor（p/2）的个体，将其与 n+1-j 号的个体crossover
 		//crossover选用单点交叉，从父母个体中随机选择相同index作为交叉点，交换对面的另一半到自己身上，
