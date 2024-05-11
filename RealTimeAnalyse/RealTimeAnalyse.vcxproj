@@ -24,6 +24,7 @@
     <ProjectGuid>{6229304b-9ae0-485f-9a3c-a393afdd372f}</ProjectGuid>
     <RootNamespace>RealTimeAnalyse</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>CAN-FD-Schedulability-and-Optimization-Suite</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
