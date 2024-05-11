@@ -149,9 +149,20 @@ public:
         id = _id;
         type = CAN_Frame_Type::NULL_FRAME;
     }
+    canfd_frame(const canfd_frame& other) {
+        message_p_list = other.message_p_list;
+        type = other.type;
+        data_size = other.data_size;
+        payload_size = other.payload_size;
+        deadline = other.deadline;
+        period = other.period;
+        identifier = other.identifier;
+        priority = other.priority;
+        exec_time = other.exec_time;
+        id = other.id;
+        offset = other.offset;
+    }
     ~canfd_frame() {
-        //this->message_p_list.clear();
-        //this->identifier.clear();
     }
     void clear() {
         this->message_p_list.clear();

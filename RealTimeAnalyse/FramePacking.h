@@ -20,7 +20,7 @@ using message_map_list = std::vector<int>;
 //封装了一组canfd_frame
 class packing_scheme {
 public:
-	frame_list_ptr frames_p=nullptr;
+	frame_list frames;
 	message_list_ptr messages_p = nullptr;
 	message_map_list individual;//根据individual自动生成frames集合
 	double fitness = 0;
@@ -28,8 +28,13 @@ public:
 	std::mt19937 engine;
 	bool schedulability_label=false;//true 可调度，默认false不可调度
 	packing_scheme(){}
+	//copy constructor
 	packing_scheme(const packing_scheme& other) {
-		frames_p = other.frames_p;
+		frames.clear();
+		frames.reserve(other.frames.size());
+		for (canfd_frame* frame : other.frames) {
+			frames.push_back(new canfd_frame(*frame));
+		}
 		messages_p = other.messages_p;
 		individual = other.individual;
 		fitness = other.fitness;
@@ -37,15 +42,45 @@ public:
 		engine = other.engine;
 		schedulability_label = other.schedulability_label;
 	}
-	~packing_scheme() {
-		//auto& frames = *frames_p;
-		//for (size_t i = 0; i < frames.size(); i++) {
-		//	delete frames[i];
-		//}
-		////TODO 内存泄露风险
-		///*delete frames_p;*/
+	packing_scheme(packing_scheme&& other) noexcept {
+		frames = std::move(other.frames); // 使用 std::move 将其他对象的 frames 移动到当前对象的 frames 中
+		messages_p = other.messages_p;
+		individual = std::move(other.individual); // 使用 std::move 将其他对象的 individual 移动到当前对象的 individual 中
+		fitness = other.fitness;
+		canfd_setting = other.canfd_setting;
+		engine = std::move(other.engine); // 使用 std::move 将其他对象的 engine 移动到当前对象的 engine 中
+		schedulability_label = other.schedulability_label;
 	}
-	packing_scheme(message_list& _message_list, message_map_list& _message_map, canfd_utils& _canfd_config) {
+	packing_scheme& operator=(const packing_scheme& other) {
+		if (this != &other) { // 避免自赋值
+			// 清空当前对象的 frames
+			for (canfd_frame* frame : frames) {
+				delete frame;
+			}
+			frames.clear();
+			// 深度复制 frames
+			frames.reserve(other.frames.size());
+			for (canfd_frame* frame : other.frames) {
+				frames.push_back(new canfd_frame(*frame));
+			}
+
+			// 复制其他成员变量
+			messages_p = other.messages_p;
+			individual = other.individual;
+			fitness = other.fitness;
+			canfd_setting = other.canfd_setting;
+			engine = other.engine;
+			schedulability_label = other.schedulability_label;
+		}
+		return *this;
+	}
+
+	~packing_scheme() {
+		for (size_t i = 0; i < frames.size(); i++) {
+			delete frames[i];
+		}
+	}
+	packing_scheme(message_list& _message_list, message_map_list& _message_map, canfd_utils& _canfd_config){
 		engine = std::mt19937(std::random_device{}());
 		messages_p = &_message_list;
 		individual = _message_map;
@@ -53,11 +88,9 @@ public:
 
 		int frames_size = *std::max_element(individual.begin(), individual.end())+1;
 
-		frames_p = new frame_list(frames_size);
-		frame_list& frames = (*frames_p);
+		frames.reserve(frames_size);
 		for (size_t i = 0; i < frames_size; i++) {
-			canfd_frame* frame_p = new canfd_frame(i);
-			frames[i]=frame_p;
+			frames.push_back(new canfd_frame(i));
 		}
 
 		message_list& messages = *(messages_p);
@@ -76,7 +109,6 @@ public:
 	//计算带宽利用率
 	double calc_bandwidth_utilization() {
 		double BWU = 0;
-		auto& frames = *frames_p;
 		for (size_t i = 0; i < frames.size(); i++) {
 			BWU += ((double)canfd_setting->calc_wctt(frames[i]->get_paylaod_size()) / frames[i]->get_period());
 		}
@@ -84,7 +116,6 @@ public:
 	}
 	//计算fitness
 	double calc_fitness() {
-		auto& frames = *frames_p;
 		return 1.0 / ((schedulability_label?0:1) + calc_bandwidth_utilization());
 	}
 	//按照遗传算法生成子代
@@ -150,7 +181,6 @@ public:
 		double mutation_P = 0.9; //P大于0.9才能变异，概率为10%
 		double P = dis_P(engine);
 
-		frame_list& frames = *frames_p;
 		std::uniform_int_distribution<int> index_dist(0, frame_num-1);
 		int index = index_dist(engine);//随机选一个数据帧
 
@@ -205,7 +235,7 @@ public:
 		int max_iter_num = 500; //最大迭代次数
 		std::unordered_set<int> index_set;//随机下标取用集合
 
-		packing_scheme best_scheme= schemes[0];
+		packing_scheme best_scheme(schemes[0]);
 
 		do {
 			//使得两个种群个体生成后代,后代先装到new_schemes里临时存储一下
@@ -250,6 +280,7 @@ public:
 			//迭代到max_iter_num次后自动退出
 			iteration_count++;
 		} while (iteration_count < max_iter_num);
+
 
 		return best_scheme;
 
