@@ -65,8 +65,7 @@ bool create_beta(const std::vector<canfd_frame*>& frame_set, const canfd_frame& 
         int offset = offset_trans(frame_set[i]->offset, frame.offset, frame_set[i]->get_period());
         if (offset < upper) {
             for (int j = 0; j * frame_set[i]->get_period() + offset < upper; j++) {
-                betaset temp_b(frame_set[i]->get_exec_time(), j * frame_set[i]->get_period() + offset);
-                beta.push_back(temp_b);
+                beta.emplace_back(frame_set[i]->get_exec_time(), j * frame_set[i]->get_period() + offset);
             }
         }
     }
@@ -85,8 +84,7 @@ bool  create_eta(const std::vector<canfd_frame*>& frame_set, const canfd_frame& 
         int m = ceil(((double)lower - offset) / (double)frame_set[i]->get_period());
         if (m * frame_set[i]->get_period() + offset < upper) {
             for (int j = 0; (m + j) * frame_set[i]->get_period() + offset < upper; j++) {
-                betaset temp_b(frame_set[i]->get_exec_time(), (m + j) * frame_set[i]->get_period() + offset);
-                eta.push_back(temp_b);
+                eta.emplace_back(frame_set[i]->get_exec_time(), (m + j) * frame_set[i]->get_period() + offset);
             }
         }
     }
@@ -293,12 +291,10 @@ bool assign_priority(std::vector<canfd_frame*>& frame_set,int schedule_require) 
         find_interval(frame_set_copy, lower, upper);
         temp_score=min_score = DBL_MAX;
         //填充可选任务集合
-        for (size_t i = 0; i < frame_set_copy.size(); i++) {
-            //std::uniform_int_distribution<size_t> index_dist(0, frame_set_copy.size() - 1);
-            size_t random_index = i;
-            temp_score = feasibility_check_with_score(frame_set_copy, random_index, pri, lower, upper);
+        for (size_t index = 0; index < frame_set_copy.size(); index++) {
+            temp_score = feasibility_check_with_score(frame_set_copy, index, pri, lower, upper);
             if (temp_score ==0) {
-                it = frame_set_copy.begin() + random_index;
+                it = frame_set_copy.begin() + index;
                 (*it)->set_priority(pri);
                 DEBUG_MSG_DEBUG2("任务", (*it)->get_id(), "  分配优先级", pri, "成功！！！！！！！！！");
                 frame_set_copy.erase(it);  //从未分配集合中，删除分配成功的frmae，然后尝试分配下一个优先级
@@ -308,7 +304,7 @@ bool assign_priority(std::vector<canfd_frame*>& frame_set,int schedule_require) 
             else if(schedule_require) {
                 if (temp_score < min_score) {
                     min_score = temp_score;
-                    it = frame_set_copy.begin() + random_index;
+                    it = frame_set_copy.begin() + index;
                 }
             }
         }

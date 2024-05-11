@@ -126,6 +126,11 @@ public:
 
 		message_map_list map1;
 		message_map_list map2;
+
+		// 预先分配足够的空间
+		map1.reserve(individual.size());
+		map2.reserve(individual.size());
+
 		// 将 individual 的内容拆分为两部分并交叉到 child1 和 child2【交叉可能导致出现map里id不连续的问题】
 		map1.assign(individual.begin(), individual.begin() + crossover_point);
 		map1.insert(map1.end(), other.individual.begin() + crossover_point, other.individual.end());

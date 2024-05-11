@@ -162,6 +162,20 @@ public:
         id = other.id;
         offset = other.offset;
     }
+    canfd_frame(canfd_frame&& other) noexcept{
+        message_p_list = std::move(other.message_p_list);
+
+        type = other.type;
+        data_size = other.data_size;
+        payload_size = other.payload_size;
+        deadline = other.deadline;
+        period = other.period;
+        identifier = other.identifier;
+        priority = other.priority;
+        exec_time = other.exec_time;
+        id = other.id;
+        offset = other.offset;
+    }
     ~canfd_frame() {
     }
     void clear() {

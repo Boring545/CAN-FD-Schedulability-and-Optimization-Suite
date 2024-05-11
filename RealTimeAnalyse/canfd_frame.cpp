@@ -362,7 +362,7 @@ bool canfd_frame::set_identifier(std::string _identifier) {
         return false;
     }
 }
-bool canfd_frame::set_priority(int priority) {
+bool canfd_frame::set_priority(const int priority) {
     std::string temp = priority_trans(priority);
     if (temp.size()==11) {
         this->priority = priority;
@@ -370,6 +370,7 @@ bool canfd_frame::set_priority(int priority) {
         return true;
     }
     else {
+        abort();
         return false;
     }
 }
